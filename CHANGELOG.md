@@ -1,3 +1,14 @@
+## [2.0.4] - 2026-02-18
+
+### Summary
+
+feat(tests): new API capabilities
+
+### Test
+
+- update tests/e2e/test_audio_broken.py
+
+
 ## [2.0.3] - 2026-02-18
 
 ### Summary

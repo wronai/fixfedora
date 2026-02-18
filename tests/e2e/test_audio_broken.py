@@ -12,6 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Skip all tests in this module if psutil not available (e.g. goal tool's env)
+pytest.importorskip("psutil")
+
 from fixfedora.utils.anonymizer import anonymize
 from fixfedora.diagnostics.system_checks import diagnose_audio, diagnose_hardware
 
