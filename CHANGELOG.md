@@ -1,3 +1,18 @@
+## [2.0.8] - 2026-02-18
+
+### Summary
+
+fix(tests): deep code analysis engine with 6 supporting modules
+
+### Test
+
+- update tests/e2e/test_anonymization_layers.py
+
+### Other
+
+- update fixfedora/agent/autonomous.py
+
+
 ## [2.0.7] - 2026-02-18
 
 ### Summary

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fixfedora"
-version = "2.0.7"
+version = "2.0.8"
 description = "AI-powered Fedora Linux diagnostics – audio, thumbnails, hardware (Lenovo Yoga)"
 readme = "README.md"
 license = "Apache-2.0"

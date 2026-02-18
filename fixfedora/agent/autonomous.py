@@ -297,12 +297,15 @@ def run_autonomous_session(
                 icon = "✅" if ok else "❌"
                 print(f"  {icon} Wynik: {out[:200]}")
 
+                # Anonimizuj output przed wysłaniem do LLM
+                anon_out, _ = anonymize(out)
+
                 messages.append({
                     "role": "user",
                     "content": (
                         f"Wykonano: `{cmd}`\n"
                         f"Sukces: {ok}\n"
-                        f"Output: {out[:500]}\n"
+                        f"Output: {anon_out[:500]}\n"
                         f"Zweryfikuj wynik i zaproponuj następną akcję."
                     ),
                 })
