@@ -125,9 +125,8 @@ def run_hitl_session(
         },
     ]
 
-    # Styl prompt
-    style = Style.from_dict({"prompt": "#00cc00 bold", "info": "#888888"}) if _HAS_PROMPT else None
-    session = PromptSession(style=style) if _HAS_PROMPT else None
+    # Używaj zwykłego input() - prompt_toolkit powoduje problemy CPR w niektórych terminalach
+    session = None
 
     def remaining() -> int:
         return config.session_timeout - int(time.time() - start_ts)

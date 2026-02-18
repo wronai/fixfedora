@@ -1,3 +1,19 @@
+## [2.0.6] - 2026-02-18
+
+### Summary
+
+fix(docs): core module improvements
+
+### Docs
+
+- docs: update README
+
+### Other
+
+- update fixfedora/agent/hitl.py
+- update img.png
+
+
 ## [2.0.5] - 2026-02-18
 
 ### Summary
