@@ -1,3 +1,26 @@
+## [2.1.7] - 2026-02-18
+
+### Summary
+
+fix(tests): CLI interface improvements
+
+### Docs
+
+- docs: update README
+
+### Test
+
+- update tests/e2e/test_cli.py
+- update tests/e2e/test_executor.py
+- update tests/e2e/test_network_broken.py
+- update tests/unit/test_anonymizer.py
+- update tests/unit/test_executor.py
+
+### Other
+
+- docker: update Dockerfile
+
+
 ## [2.1.6] - 2026-02-18
 
 ### Summary
@@ -10,6 +33,50 @@ feat(goal): CLI interface improvements
 - update fixos/cli.py
 - update fixos/config.py
 
+
+## [2.2.0] - 2026-02-18
+
+### Naprawione błędy (Bug Fixes)
+
+- **fix(diagnostics):** `NameError: name '_IS_LINUX' is not defined` w `diagnose_system()` –
+  dodano brakujący import `IS_LINUX/IS_WINDOWS/IS_MAC/SYSTEM` z `platform_utils`
+- **fix(anonymizer):** ścieżki `/home/user/.pyenv/versions/...` nie były anonimizowane –
+  regex `/home/[^\s/\"']+` dopasowywał tylko jeden segment; naprawiono na pełną ścieżkę;
+  zmieniono kolejność zastąpień (home path → regex → username)
+- **fix(executor):** `apt-get install` bez flagi `-y` powodował interaktywny prompt i abort –
+  dodano metodę `_make_noninteractive()` automatycznie wstrzykującą `-y` dla apt/apt-get/dnf/yum
+- **fix(executor):** `sudo systemctl --user` powodował błąd DBUS (`$DBUS_SESSION_BUS_ADDRESS not defined`) –
+  `needs_sudo()` teraz pomija `systemctl --user` (user-scope nie wymaga sudo)
+
+### Dodane (Added)
+
+- **feat(cli):** `fixos` bez argumentów wyświetla stylizowany ekran powitalny z listą komend,
+  aktualnym statusem (provider, API key, .env) i kontekstowymi wskazówkami
+- **feat(cli):** nowa komenda `fixos llm` – lista 12 providerów LLM z:
+  - opisem, modelem domyślnym, zmienną env
+  - klikalnym URL do strony generowania klucza API
+  - oznaczeniami FREE/PAID i aktywnym providerem (`◀ aktywny`)
+  - gotowymi komendami do skopiowania
+  - flagą `--free` filtrującą tylko darmowe providery
+- **feat(config):** rozszerzono `PROVIDER_DEFAULTS` z 5 do 12 providerów:
+  anthropic, mistral, groq, together, cohere, deepseek, cerebras
+- **feat(token):** auto-detekcja providera po prefiksie klucza rozszerzona o `sk-ant-` (Anthropic) i `gsk_` (Groq)
+- **feat(hitl):** koloryzowany markdown output odpowiedzi LLM (ANSI):
+  - 🔴/🟡/🟢 severity z kolorami
+  - `` `inline code` `` → cyan, `**bold**` → biały bold
+  - bloki kodu z ramkami box-drawing (`┌─ bash ─┐` / `│` / `└─┘`)
+  - stdout/stderr z kolorowymi ramkami i tłem
+- **feat(cli):** nowe logo ASCII fixOS zastępuje stare `fixfedora`
+- **feat(providers):** `fixos providers` zaktualizowany do nowego formatu z FREE/PAID badge
+
+### Testy (Tests)
+
+- Dodano testy jednostkowe dla nowych funkcji anonymizera (pyenv paths, kolejność zastąpień)
+- Dodano testy jednostkowe dla `CommandExecutor._make_noninteractive()` i `needs_sudo()`
+- Dodano testy e2e dla scenariusza broken-network
+- Dodano testy e2e dla CLI (welcome screen, llm command, token set)
+- Dodano testy e2e dla executora (apt-get -y injection, systemctl --user bez sudo)
+- Dodano Docker environment `broken-network`
 
 ## [2.1.5] - 2026-02-18
 

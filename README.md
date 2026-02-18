@@ -1,10 +1,16 @@
-![img.png](img.png)
+```
+  ___  _       ___  ____
+ / _(_)_  __  / _ \/ ___|
+| |_| \ \/ / | | | \___ \
+|  _| |>  <  | |_| |___) |
+|_| |_/_/\_\  \___/|____/
+  AI-powered OS Diagnostics  •  v2.2.0
+```
 
-# fixos v2.1 🔧🤖
+# fixOS v2.2 🔧🤖
 
-**AI diagnostyka i naprawa wszystkich systemów** – Linux, Windows, macOS
-z anonimizacją danych, trybem HITL/Autonomous i zewnętrznymi źródłami wiedzy.
-
+**AI diagnostyka i naprawa systemów** – Linux, Windows, macOS  
+z anonimizacją danych, trybem HITL/Autonomous, grafem problemów i 12 providerami LLM.
 
 ---
 
@@ -12,9 +18,9 @@ z anonimizacją danych, trybem HITL/Autonomous i zewnętrznymi źródłami wiedz
 
 | System | Package Manager | Audio | Hardware | System |
 |:--|:--|:--:|:--:|:--:|
-| **Linux** (Fedora, Ubuntu, Arch) | dnf/apt/pacman | ✅ ALSA/PipeWire | ✅ DMI/sensors | ✅ systemd/journal |
-| **Windows** 10/11 | winget/choco | ✅ WMI Audio | ✅ WMI Hardware | ✅ Event Log |
-| **macOS** | brew | ✅ CoreAudio | ✅ system_profiler | ✅ launchd |
+| **Linux** (Fedora, Ubuntu, Arch, Debian) | dnf / apt / pacman | ✅ ALSA/PipeWire/SOF | ✅ DMI/sensors | ✅ systemd/journal |
+| **Windows** 10/11 | winget / choco | ✅ WMI Audio | ✅ WMI Hardware | ✅ Event Log |
+| **macOS** 12+ | brew | ✅ CoreAudio | ✅ system_profiler | ✅ launchd |
 
 ---
 
@@ -24,10 +30,11 @@ z anonimizacją danych, trybem HITL/Autonomous i zewnętrznymi źródłami wiedz
 # 1. Instalacja
 pip install -e ".[dev]"
 
-# 2. Token Google Gemini (domyślny, darmowy)
-fixos token set AIzaSy...          # lub --provider openai/xai
+# 2. Wybierz provider i pobierz klucz API
+fixos llm                          # lista 12 providerów z linkami
 
-# 3. Uruchom diagnostykę
+# 3. Zapisz klucz i uruchom
+fixos token set AIzaSy...          # Gemini (darmowy, domyślny)
 fixos fix
 ```
 
@@ -36,15 +43,18 @@ fixos fix
 ## Komendy CLI
 
 ```
-fixos scan              – tylko diagnostyka (bez LLM)
-fixos fix               – diagnoza + sesja naprawcza (HITL lub autonomous)
-fixos token set KEY     – zapisz token API
+fixos                   – ekran powitalny z listą komend i statusem
+fixos fix               – diagnoza + sesja naprawcza z AI (HITL)
+fixos scan              – diagnostyka systemu bez AI
+fixos orchestrate       – zaawansowana orkiestracja (graf problemów DAG)
+fixos llm               – lista 12 providerów LLM + linki do kluczy API
+fixos token set KEY     – zapisz klucz API do .env (auto-detekcja providera)
 fixos token show        – pokaż aktualny token (zamaskowany)
-fixos token clear       – usuń token
+fixos token clear       – usuń token z .env
 fixos config show       – pokaż konfigurację
 fixos config init       – utwórz .env z szablonu
 fixos config set K V    – ustaw wartość w .env
-fixos providers         – lista providerów LLM
+fixos providers         – skrócona lista providerów
 fixos test-llm          – testuj połączenie z LLM
 ```
 
@@ -60,17 +70,42 @@ fixos fix --modules audio,thumbnails
 # Tryb autonomiczny (agent sam naprawia, max 5 akcji)
 fixos fix --mode autonomous --max-fixes 5
 
-# Bez pokazywania danych użytkownikowi przed wysłaniem
-fixos fix --no-show-data
+# Zaawansowana orkiestracja z grafem zależności
+fixos orchestrate --dry-run
 
-# Z xAI Grok
-fixos fix --provider xai --token xai-...
+# Pokaż tylko darmowe providery LLM
+fixos llm --free
+
+# Ustaw Groq jako provider (ultra-szybki, darmowy)
+fixos token set gsk_... --provider groq
+fixos fix --provider groq
 
 # Timeout 30 minut
 fixos fix --timeout 1800
+```
 
-# Test połączenia z Gemini
-fixos test-llm
+---
+
+## 🤖 Dostępni Providerzy LLM (12)
+
+| # | Provider | Tier | Model domyślny | Klucz API |
+|:--|:--|:--:|:--|:--|
+| 1 | **gemini** | 🟢 FREE | gemini-2.5-flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| 2 | **openrouter** | 🟢 FREE | openai/gpt-4o-mini | [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) |
+| 3 | **mistral** | 🟢 FREE | mistral-small-latest | [console.mistral.ai](https://console.mistral.ai/api-keys/) |
+| 4 | **groq** | 🟢 FREE | llama-3.1-8b-instant | [console.groq.com/keys](https://console.groq.com/keys) |
+| 5 | **together** | 🟢 FREE | llama-3.2-11B | [api.together.ai](https://api.together.ai/settings/api-keys) |
+| 6 | **cohere** | 🟢 FREE | command-r | [dashboard.cohere.com](https://dashboard.cohere.com/api-keys) |
+| 7 | **cerebras** | 🟢 FREE | llama3.1-8b | [cloud.cerebras.ai](https://cloud.cerebras.ai/platform/) |
+| 8 | **ollama** | 🟢 LOCAL | llama3.2 | [ollama.com/download](https://ollama.com/download) |
+| 9 | **openai** | 💰 PAID | gpt-4o-mini | [platform.openai.com](https://platform.openai.com/api-keys) |
+| 10 | **anthropic** | 💰 PAID | claude-3-haiku | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| 11 | **xai** | 💰 PAID | grok-beta | [console.x.ai](https://console.x.ai/) |
+| 12 | **deepseek** | 💰 PAID | deepseek-chat | [platform.deepseek.com](https://platform.deepseek.com/api_keys) |
+
+```bash
+fixos llm          # pełna lista z opisami i gotowymi komendami
+fixos llm --free   # tylko darmowe
 ```
 
 ---
@@ -82,48 +117,54 @@ fixos test-llm
 ```
 LLM sugeruje → Ty decydujesz → Skrypt wykonuje
 
-fixos [00:58:42] ❯ 1           ← napraw problem nr 1
-fixos [00:58:30] ❯ !dnf list   ← wykonaj komendę bezpośrednio
-fixos [00:58:10] ❯ search sof  ← szukaj w zewnętrznych źródłach
-fixos [00:57:55] ❯ D           ← opisz własny problem
-fixos [00:57:40] ❯ q           ← zakończ
+fixos [00:58:42] ❯ 1              ← napraw problem nr 1
+fixos [00:58:30] ❯ A              ← napraw wszystkie
+fixos [00:58:20] ❯ !systemctl status pipewire  ← własna komenda
+fixos [00:58:10] ❯ search sof-firmware lenovo  ← szukaj zewnętrznie
+fixos [00:57:55] ❯ D              ← opisz własny problem
+fixos [00:57:40] ❯ ?              ← zapytaj o szczegóły
+fixos [00:57:30] ❯ q              ← zakończ
 ```
 
-**Nowość v2.1**: Opcja `[D]` – opisz własny problem, a LLM zaproponuje rozwiązania.
+Wyjście koloryzowane: 🔴 krytyczne / 🟡 ważne / 🟢 drobne, bloki kodu z ramkami box-drawing.
 
 ### 🤖 Autonomous – agent działa samodzielnie
 
 ```bash
-fixos fix --mode autonomous
+fixos fix --mode autonomous --max-fixes 10
 ```
-- Agent analizuje → wykonuje → weryfikuje → kontynuuje
-- Protokół JSON: `{ "action": "EXEC", "command": "...", "reason": "..." }`
-- **Zabezpieczenia**: lista zabronionych komend (rm -rf /, mkfs, fdisk...)
-- Każde `EXEC` jest logowane z wynikiem
-- Limit: `--max-fixes 10` (domyślnie)
+- Protokół JSON: `{ "action": "EXEC|SEARCH|SKIP|DONE", "command": "...", "reason": "..." }`
+- Zabezpieczenia: lista zabronionych komend (`rm -rf /`, `mkfs`, `fdisk`, `dd if=...`)
+- Każde `EXEC` logowane z wynikiem i oceną LLM
 - Wymaga jawnego `yes` na starcie
+
+### 🎼 Orchestrate – graf problemów (DAG)
+
+```bash
+fixos orchestrate
+fixos orchestrate --dry-run   # podgląd bez wykonywania
+```
+- Buduje graf zależności między problemami
+- Po każdej naprawie re-diagnozuje i wykrywa nowe problemy
+- LLM ocenia wynik każdej komendy (JSON structured output)
 
 ---
 
-## Anonimizacja danych
+## 🔒 Anonimizacja danych
 
-**Zawsze pokazywana użytkownikowi** przed wysłaniem do LLM (`SHOW_ANONYMIZED_DATA=true`):
+Zawsze pokazywana przed wysłaniem do LLM. Maskowane kategorie:
 
-```
-═══════════════════════════════════════════════════════════════
-  📋 DANE DIAGNOSTYCZNE (zanonimizowane) – wysyłane do LLM
-═══════════════════════════════════════════════════════════════
-  ... [zanonimizowane dane] ...
-
-  🔒 Anonimizacja – co zostało ukryte:
-  ✓ Hostname: 1 wystąpień
-  ✓ Username: 3 wystąpień
-  ✓ Adresy IPv4: 2 wystąpień
-  ✓ UUID (serial/hardware): 4 wystąpień
-═══════════════════════════════════════════════════════════════
-```
-
-Maskowane dane: IPv4, MAC, hostname, username, `/home/<user>`, tokeny API, UUID, numery seryjne.
+| Kategoria | Przykład | Zamiennik |
+|:--|:--|:--|
+| Hostname | `moj-laptop` | `[HOSTNAME]` |
+| Username | `jan` | `[USER]` |
+| Ścieżki /home | `/home/jan/.pyenv/versions/3.12/bin/python` | `/home/[USER]/...` |
+| Adresy IPv4 | `192.168.1.100` | `192.168.XXX.XXX` |
+| Adresy MAC | `aa:bb:cc:dd:ee:ff` | `XX:XX:XX:XX:XX:XX` |
+| Tokeny API | `sk-abc123...` | `[API_TOKEN_REDACTED]` |
+| UUID hardware | `a1b2c3d4-...` | `[UUID-REDACTED]` |
+| Numery seryjne | `SN: PF1234567` | `Serial: [SERIAL-REDACTED]` |
+| Hasła w env | `PASSWORD=secret` | `PASSWORD=[REDACTED]` |
 
 ---
 
@@ -131,10 +172,10 @@ Maskowane dane: IPv4, MAC, hostname, username, `/home/<user>`, tokeny API, UUID,
 
 | Moduł | Linux | Windows | macOS | Co sprawdza |
 |:--|:--:|:--:|:--:|:--|
-| `system` | ✅ | ✅ | ✅ | CPU, RAM, dyski, usługi, aktualizacje, firewall |
-| `audio` | ✅ | ✅ | ✅ | ALSA/PipeWire (Linux), WMI Audio (Win), CoreAudio (Mac) |
-| `thumbnails` | ✅ | ➖ | ➖ | ffmpegthumbnailer, cache, GNOME ustawienia |
-| `hardware` | ✅ | ✅ | ✅ | DMI/WMI/system_profiler, BIOS, GPU, czujniki |
+| `system` | ✅ | ✅ | ✅ | CPU, RAM, dyski, usługi, aktualizacje, SELinux, firewall |
+| `audio` | ✅ | ✅ | ✅ | ALSA/PipeWire/SOF (Linux), WMI Audio (Win), CoreAudio (Mac) |
+| `thumbnails` | ✅ | ➖ | ➖ | ffmpegthumbnailer, cache, GNOME gsettings |
+| `hardware` | ✅ | ✅ | ✅ | DMI/WMI/system_profiler, BIOS, GPU, czujniki, bateria |
 
 ---
 
@@ -149,33 +190,23 @@ Gdy LLM nie zna rozwiązania, fixos szuka automatycznie w:
 - **DuckDuckGo** – ogólne wyszukiwanie (bez klucza API)
 - **Google via SerpAPI** – najlepsze wyniki (opcjonalny klucz `SERPAPI_KEY`)
 
-```bash
-# Ręczne wyszukiwanie w sesji HITL
-fixos [00:58:00] ❯ search sof-firmware lenovo yoga no sound
-```
-
 ---
 
 ## Konfiguracja (.env)
 
 ```bash
-# Stwórz plik konfiguracyjny
-fixos config init
-
-# Lub ręcznie:
-cp .env.example .env
-chmod 600 .env
+fixos config init    # utwórz .env z szablonu
+fixos config show    # sprawdź aktualną konfigurację
 ```
 
-Kluczowe ustawienia:
-
 ```env
-LLM_PROVIDER=gemini           # gemini|openai|xai|openrouter|ollama
-GEMINI_API_KEY=AIzaSy...      # Klucz Gemini (darmowy)
+LLM_PROVIDER=gemini           # gemini|openai|openrouter|groq|mistral|...
+GEMINI_API_KEY=AIzaSy...      # klucz Gemini (darmowy)
 AGENT_MODE=hitl               # hitl|autonomous
-SHOW_ANONYMIZED_DATA=true     # Pokaż dane przed wysłaniem
-ENABLE_WEB_SEARCH=true        # Fallback do zewnętrznych źródeł
-SESSION_TIMEOUT=3600          # Timeout sesji (1h)
+SHOW_ANONYMIZED_DATA=true     # pokaż dane przed wysłaniem
+ENABLE_WEB_SEARCH=true        # fallback do zewnętrznych źródeł
+SESSION_TIMEOUT=3600          # timeout sesji (1h)
+SERPAPI_KEY=                  # opcjonalny – lepsze wyniki wyszukiwania
 ```
 
 ---
@@ -185,17 +216,18 @@ SESSION_TIMEOUT=3600          # Timeout sesji (1h)
 ### Uruchomienie testów
 
 ```bash
-# Unit testy (bez API)
+# Wszystkie testy jednostkowe (bez API, szybkie)
 pytest tests/unit/ -v
 
-# E2E testy z mock LLM
+# Testy e2e z mock LLM
 pytest tests/e2e/ -v
 
-# E2E testy z prawdziwym API (wymaga tokena w .env)
-pytest tests/e2e/ -v -k "real_llm"
+# Tylko testy z prawdziwym API (wymaga tokena w .env)
+pytest tests/e2e/ -v -m real_api
 
 # Pokrycie kodu
 pytest --cov=fixos --cov-report=html
+make test-coverage
 ```
 
 ### Docker – symulowane środowiska
@@ -204,13 +236,10 @@ pytest --cov=fixos --cov-report=html
 # Zbuduj wszystkie obrazy
 docker compose -f docker/docker-compose.yml build
 
-# Testuj scenariusz broken-audio
+# Scenariusze broken
 docker compose -f docker/docker-compose.yml run broken-audio
-
-# Testuj scenariusz broken-thumbnails
 docker compose -f docker/docker-compose.yml run broken-thumbnails
-
-# Pełny scenariusz (wszystkie problemy)
+docker compose -f docker/docker-compose.yml run broken-network
 docker compose -f docker/docker-compose.yml run broken-full
 
 # Uruchom testy e2e w Dockerze
@@ -223,6 +252,7 @@ docker compose -f docker/docker-compose.yml run e2e-tests
 |:--|:--|
 | `fixos-broken-audio` | Brak sof-firmware, PipeWire failed, no ALSA cards |
 | `fixos-broken-thumbnails` | Brak thumbnailerów, pusty cache, brak GStreamer |
+| `fixos-broken-network` | NetworkManager failed, DNS broken, rfkill blocked |
 | `fixos-broken-full` | Wszystkie problemy naraz + pending updates + failed services |
 
 ---
@@ -232,17 +262,23 @@ docker compose -f docker/docker-compose.yml run e2e-tests
 ```
 fixos/
 ├── fixos/
-│   ├── __init__.py
-│   ├── cli.py                  # Komendy CLI (Click)
-│   ├── config.py               # Zarządzanie konfiguracją (.env)
-│   ├── platform_utils.py       # Cross-platform utilities (Linux/Win/Mac)
+│   ├── cli.py                  # Komendy CLI (Click) – fixos, fix, scan, llm, ...
+│   ├── config.py               # Konfiguracja + 12 providerów LLM
+│   ├── platform_utils.py       # Cross-platform (Linux/Win/Mac)
 │   ├── agent/
-│   │   ├── hitl.py             # Human-in-the-Loop z menu akcji
+│   │   ├── hitl.py             # HITL z koloryzowanym markdown output
 │   │   └── autonomous.py       # Tryb autonomiczny z JSON protokołem
 │   ├── diagnostics/
 │   │   └── system_checks.py    # Moduły: system, audio, thumbnails, hardware
+│   ├── fixes/
+│   │   ├── knowledge_base.py   # Baza znanych bugów z heurystykami
+│   │   └── heuristics.py       # Matcher diagnostics → known fixes
+│   ├── orchestrator/
+│   │   ├── graph.py            # Graf problemów (DAG)
+│   │   ├── executor.py         # Bezpieczny executor komend
+│   │   └── orchestrator.py     # Główna pętla orkiestracji
 │   ├── providers/
-│   │   └── llm.py              # Multi-provider LLM (Gemini/OpenAI/xAI/Ollama)
+│   │   └── llm.py              # Multi-provider LLM client
 │   └── utils/
 │       ├── anonymizer.py       # Anonimizacja z raportem
 │       └── web_search.py       # Bugzilla/AskFedora/ArchWiki/GitHub/DDG
@@ -250,25 +286,54 @@ fixos/
 │   ├── conftest.py             # Fixtures + mock diagnostics
 │   ├── e2e/
 │   │   ├── test_audio_broken.py
-│   │   └── test_thumbnails_broken.py
+│   │   ├── test_thumbnails_broken.py
+│   │   ├── test_network_broken.py
+│   │   ├── test_executor.py
+│   │   └── test_cli.py
 │   └── unit/
-│       └── test_core.py
+│       ├── test_core.py
+│       ├── test_anonymizer.py
+│       └── test_executor.py
 ├── docker/
 │   ├── base/Dockerfile
 │   ├── broken-audio/Dockerfile
 │   ├── broken-thumbnails/Dockerfile
-│   ├── broken-full/Dockerfile
-│   └── docker-compose.yml
+│   ├── broken-network/Dockerfile
+│   └── broken-full/Dockerfile
 ├── .env.example
 ├── pytest.ini
-└── setup.py
+└── pyproject.toml
 ```
+
+---
+
+## 🚀 Planowane funkcje (Roadmap)
+
+### v2.3 – Heurystyki bez LLM
+- `fixos quickfix` – natychmiastowe naprawy bez API (baza 30+ znanych bugów)
+- Dopasowanie heurystyczne diagnostyki do znanych wzorców
+- Działa offline, zero tokenów
+
+### v2.4 – Raporty i historia
+- `fixos report` – eksport sesji do HTML/PDF/Markdown
+- `fixos history` – historia napraw z wynikami
+- Porównanie stanu przed/po naprawie
+
+### v2.5 – Integracje
+- `fixos watch` – monitoring w tle, powiadomienia przy problemach
+- Webhook do Slack/Discord przy wykryciu błędów krytycznych
+- Integracja z Prometheus/Grafana (metryki diagnostyczne)
+
+### v3.0 – Multi-agent
+- Równoległe agenty dla różnych modułów (audio, sieć, dysk)
+- Koordynator z priorytetyzacją problemów
+- Uczenie się z historii napraw (fine-tuning lokalnych modeli)
 
 ---
 
 ## Licencja
 
-Apache License 2.0 - see [LICENSE](LICENSE) for details.
+Apache License 2.0 – see [LICENSE](LICENSE) for details.
 
 ## License
 
