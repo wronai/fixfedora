@@ -1,3 +1,15 @@
+## [2.1.4] - 2026-02-18
+
+### Summary
+
+fix(goal): CLI interface improvements
+
+### Other
+
+- update fixos/cli.py
+- update fixos/llm_shell.py
+
+
 ## [2.1.3] - 2026-02-18
 
 ### Summary

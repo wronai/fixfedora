@@ -152,7 +152,7 @@ def run_llm_shell(
     session = PromptSession(style=style)
 
     print("\n" + "═" * 60)
-    print(f"  🤖 fixfedora LLM Shell  |  Model: {model}")
+    print(f"  🤖 fixos LLM Shell  |  Model: {model}")
     print(f"  ⏰ Sesja: max {format_time(timeout)}  |  Wpisz 'q' aby wyjść")
     print("═" * 60 + "\n")
 
@@ -195,7 +195,7 @@ def run_llm_shell(
             # Input użytkownika
             try:
                 user_input = session.prompt(
-                    HTML(f"\n<prompt>fixfedora</prompt> <timer>[{format_time(remaining)}]</timer> ❯ ")
+                    HTML(f"\n<prompt>fixos</prompt> <timer>[{format_time(remaining)}]</timer> ❯ ")
                 ).strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n\nSesja przerwana przez użytkownika.")

@@ -493,7 +493,7 @@ def test_llm(provider, token, model, no_banner):
 
 
 # ══════════════════════════════════════════════════════════
-#  fixfedora orchestrate
+#  fixos orchestrate
 # ══════════════════════════════════════════════════════════
 
 @cli.command()
@@ -520,10 +520,10 @@ def orchestrate(provider, token, model, no_banner, mode, modules, dry_run, max_i
 
     \b
     Przykłady:
-      fixfedora orchestrate                    # pełna diagnostyka + naprawy
-      fixfedora orchestrate --dry-run          # podgląd bez wykonywania
-      fixfedora orchestrate --modules audio    # tylko problemy audio
-      fixfedora orchestrate --mode autonomous  # bez pytania o każdą komendę
+      fixos orchestrate                    # pełna diagnostyka + naprawy
+      fixos orchestrate --dry-run          # podgląd bez wykonywania
+      fixos orchestrate --modules audio    # tylko problemy audio
+      fixos orchestrate --mode autonomous  # bez pytania o każdą komendę
     """
     if not no_banner:
         click.echo(click.style(BANNER, fg="cyan"))
