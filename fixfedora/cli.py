@@ -14,8 +14,8 @@ except ImportError:
     print("[BŁĄD] Zainstaluj: pip install click")
     sys.exit(1)
 
-from .utils.system_checks import get_full_diagnostics
-from .utils.anonymizer import anonymize
+from .system_checks import get_full_diagnostics
+from .anonymizer import anonymize
 from .llm_shell import run_llm_shell
 
 CONFIG_FILE = Path.home() / ".fixfedora.conf"

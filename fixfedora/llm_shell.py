@@ -24,7 +24,7 @@ except ImportError:
     print("[BŁĄD] Zainstaluj: pip install prompt_toolkit")
     sys.exit(1)
 
-from .utils.anonymizer import anonymize
+from .anonymizer import anonymize
 
 # ── Stałe ──────────────────────────────────────────────────────────────────
 SESSION_TIMEOUT = 3600  # 1 godzina w sekundach
