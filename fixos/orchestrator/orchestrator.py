@@ -14,8 +14,16 @@ from typing import Optional
 from ..config import FixOsConfig
 from ..providers.llm import LLMClient, LLMError
 from ..utils.anonymizer import anonymize
+from ..utils.terminal import (
+    _C, print_problem_header, print_cmd_block,
+    print_stdout_box, print_stderr_box, render_tree_colored,
+)
 from .executor import CommandExecutor, ExecutionResult, DangerousCommandError, CommandTimeoutError
 from .graph import Problem, ProblemGraph, ProblemSeverity
+
+
+class _SkipAll(Exception):
+    """Rzucany gdy user wpisuje 's' – pomija wszystkie komendy bieżącego problemu."""
 
 
 DIAGNOSE_PROMPT = """\
@@ -185,10 +193,20 @@ class FixOrchestrator:
 
             # Wykonaj każdą komendę fix
             last_result = None
+            skip_all = False
             for cmd in problem.fix_commands:
-                if not confirm_fn(problem, cmd):
-                    problem.status = "pending"
-                    self._log("skipped", {"problem_id": problem.id, "command": cmd})
+                try:
+                    if not confirm_fn(problem, cmd):
+                        problem.status = "skipped"
+                        self._log("skipped", {"problem_id": problem.id, "command": cmd})
+                        break
+                except _SkipAll:
+                    skip_all = True
+                    problem.status = "skipped"
+                    self._log("skipped_all", {"problem_id": problem.id})
+                    break
+
+                if skip_all:
                     break
 
                 try:
@@ -198,7 +216,6 @@ class FixOrchestrator:
                     progress_fn(problem, result)
 
                     if not result.success and result.executed:
-                        # Komenda się nie powiodła – oceń przez LLM
                         break
                 except DangerousCommandError as e:
                     print(f"\n  ⛔ ZABLOKOWANO: {e}")
@@ -209,6 +226,9 @@ class FixOrchestrator:
                     print(f"\n  ⏰ TIMEOUT: {e}")
                     last_result = ExecutionResult(command=cmd, timed_out=True, executed=False)
                     break
+
+            if skip_all:
+                continue
 
             # Oceń wynik przez LLM i wykryj nowe problemy
             if last_result is not None:
@@ -328,18 +348,41 @@ class FixOrchestrator:
 
     @staticmethod
     def _default_confirm(problem: Problem, command: str) -> bool:
-        severity_icon = {"critical": "🔴", "warning": "🟡", "info": "🟢"}.get(problem.severity, "⚪")
-        print(f"\n  {severity_icon} [{problem.id}] {problem.description}")
-        print(f"  ┌─ KOMENDA ──────────────────────────────────")
-        print(f"  │  {command}")
-        print(f"  └────────────────────────────────────────────")
-        ans = input("  Wykonać? [Y/n/s(kip all)]: ").strip().lower()
+        print_problem_header(
+            problem.id, problem.description, problem.severity,
+            status=problem.status, attempts=problem.attempts, max_attempts=problem.max_attempts,
+        )
+        print_cmd_block(command)
+        try:
+            prompt = (
+                f"  {_C.BOLD}Wykonać?{_C.RESET} "
+                f"{_C.GREEN}[Y]{_C.RESET}es / "
+                f"{_C.RED}[n]{_C.RESET}o / "
+                f"{_C.YELLOW}[s]{_C.RESET}kip all: "
+            )
+            ans = input(prompt).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return False
+        if ans in ("s", "skip", "skip all"):
+            raise _SkipAll()
         return ans in ("y", "yes", "")
 
     @staticmethod
     def _default_progress(problem: Problem, result: ExecutionResult) -> None:
-        icon = "✅" if result.success else f"❌ (kod {result.returncode})"
-        print(f"  {icon} {result.command}")
+        if not result.executed:
+            print(f"\n  {_C.DIM}{_C.YELLOW}⏭️  DRY-RUN:{_C.RESET} {_C.CYAN}`{result.command}`{_C.RESET}")
+            if result.preview:
+                print(f"  {_C.DIM}{result.preview}{_C.RESET}")
+            return
+        print()
+        if result.success:
+            status_str = f"{_C.GREEN}{_C.BOLD}✅ OK{_C.RESET}"
+        else:
+            status_str = f"{_C.RED}{_C.BOLD}❌ kod {result.returncode}{_C.RESET}"
+        print(f"  {status_str}  {_C.CYAN}`{result.command}`{_C.RESET}")
         if result.stdout and not result.stdout.startswith("(już wykonane"):
-            preview = result.stdout[:300]
-            print(f"  Output: {preview}")
+            print()
+            print_stdout_box(result.stdout)
+        if result.stderr and not result.success:
+            print()
+            print_stderr_box(result.stderr)

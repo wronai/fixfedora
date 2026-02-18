@@ -100,8 +100,9 @@ class TestNeedsSudo:
     def test_dnf_needs_sudo(self, ex):
         assert ex.needs_sudo("dnf install sof-firmware") is True
 
-    def test_apt_get_needs_sudo(self, ex):
-        assert ex.needs_sudo("apt-get install curl") is True
+    def test_apt_get_no_sudo_in_needs_sudo(self, ex):
+        """apt-get nie jest w NEEDS_SUDO_PREFIXES – sudo dodawane przez add_sudo w execute_sync."""
+        assert ex.needs_sudo("apt-get install curl") is False
 
     def test_already_sudo_no_double(self, ex):
         """Komenda z sudo nie powinna dostawać drugiego sudo."""
@@ -182,17 +183,17 @@ class TestCheckIdempotent:
     """Testy check_idempotent() – sprawdzanie stanu przed wykonaniem."""
 
     def test_dnf_install_has_check(self, ex):
-        check = ex.check_idempotent("sudo dnf install sof-firmware")
+        check = ex.check_idempotent("dnf install sof-firmware")
         assert check is not None
         assert "sof-firmware" in check
 
     def test_systemctl_enable_has_check(self, ex):
-        check = ex.check_idempotent("sudo systemctl enable sshd")
+        check = ex.check_idempotent("systemctl enable sshd")
         assert check is not None
         assert "sshd" in check
 
     def test_systemctl_start_has_check(self, ex):
-        check = ex.check_idempotent("sudo systemctl start pipewire")
+        check = ex.check_idempotent("systemctl start pipewire")
         assert check is not None
 
     def test_mkdir_has_check(self, ex):

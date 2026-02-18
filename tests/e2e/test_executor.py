@@ -160,18 +160,18 @@ class TestLiveExecution:
 
     def test_echo_executes_correctly(self, ex_live):
         result = ex_live.execute_sync("echo fixos_test", add_sudo=False, check_idempotent=False)
-        assert result.ok is True
+        assert result.success is True
         assert "fixos_test" in result.stdout
         assert result.returncode == 0
 
     def test_false_command_returns_nonzero(self, ex_live):
         result = ex_live.execute_sync("false", add_sudo=False, check_idempotent=False)
-        assert result.ok is False
+        assert result.success is False
         assert result.returncode != 0
 
     def test_uname_returns_output(self, ex_live):
         result = ex_live.execute_sync("uname -s", add_sudo=False, check_idempotent=False)
-        assert result.ok is True
+        assert result.success is True
         assert len(result.stdout) > 0
 
     def test_timeout_handling(self):
@@ -184,13 +184,13 @@ class TestLiveExecution:
         result = ex_live.execute_sync(
             "nonexistent_command_xyz_12345", add_sudo=False, check_idempotent=False
         )
-        assert result.ok is False
+        assert result.success is False
 
     def test_stdout_captured(self, ex_live):
         result = ex_live.execute_sync(
             "printf 'line1\\nline2\\nline3'", add_sudo=False, check_idempotent=False
         )
-        assert result.ok is True
+        assert result.success is True
         assert "line1" in result.stdout
         assert "line2" in result.stdout
 
@@ -198,7 +198,7 @@ class TestLiveExecution:
         result = ex_live.execute_sync(
             "ls /nonexistent_path_xyz_12345", add_sudo=False, check_idempotent=False
         )
-        assert result.ok is False
+        assert result.success is False
         assert len(result.stderr) > 0
 
 

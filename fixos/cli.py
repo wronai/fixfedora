@@ -17,7 +17,10 @@ from pathlib import Path
 
 import click
 
-from .config import FixOsConfig, get_providers_list, ENV_SEARCH_PATHS, PROVIDER_DEFAULTS
+from .config import (
+    FixOsConfig, get_providers_list, ENV_SEARCH_PATHS, PROVIDER_DEFAULTS,
+    detect_provider_from_key, interactive_provider_setup,
+)
 from .diagnostics import get_full_diagnostics, DIAGNOSTIC_MODULES
 from .utils.anonymizer import anonymize, display_anonymized_preview
 from .agent.hitl import run_hitl_session
@@ -92,8 +95,8 @@ def _print_welcome():
         ("fixos fix",         "🔧", "Diagnostyka + sesja naprawcza z AI (HITL)"),
         ("fixos scan",        "🔍", "Diagnostyka systemu bez AI"),
         ("fixos orchestrate", "🎼", "Zaawansowana orkiestracja napraw (graf problemów)"),
-        ("fixos llm",         "🤖", "Lista providerów LLM + linki do kluczy API"),
-        ("fixos token set",   "🔑", "Zapisz klucz API do .env"),
+        ("fixos llm",         "🤖", "Lista 12 providerów LLM + linki do kluczy API"),
+        ("fixos token set",   "🔑", "Zapisz klucz API (auto-detekcja providera)"),
         ("fixos token show",  "👁️ ", "Pokaż aktualny token (zamaskowany)"),
         ("fixos config show", "⚙️ ", "Pokaż konfigurację"),
         ("fixos config init", "📄", "Utwórz plik .env z szablonu"),
@@ -107,6 +110,23 @@ def _print_welcome():
 
     click.echo()
     click.echo(click.style("─" * 60, fg="cyan"))
+    click.echo(click.style("  🔬 MODUŁY DIAGNOSTYKI", fg="cyan"))
+    click.echo(click.style("─" * 60, fg="cyan"))
+    modules_info = [
+        ("system",     "🖥️ ", "CPU, RAM, dyski, usługi, aktualizacje"),
+        ("audio",      "🔊", "ALSA, PipeWire, SOF firmware, mikrofon"),
+        ("thumbnails", "🖼️ ", "Podglądy plików, cache, GStreamer"),
+        ("hardware",   "🔧", "DMI, GPU, touchpad, kamera, bateria"),
+        ("security",   "🔒", "Firewall, porty, SELinux, SSH, fail2ban"),
+        ("resources",  "📊", "Dysk (co zajmuje), procesy, autostart"),
+    ]
+    for mod, icon, desc in modules_info:
+        mod_styled = click.style(f"{mod:<12}", fg="white")
+        click.echo(f"  {icon}  {mod_styled} {desc}")
+    click.echo(click.style("  Użycie: fixos scan --modules security,resources", fg="cyan"))
+
+    click.echo()
+    click.echo(click.style("─" * 60, fg="cyan"))
     click.echo(click.style("  ⚙️  AKTUALNY STATUS", fg="cyan"))
     click.echo(click.style("─" * 60, fg="cyan"))
     click.echo(f"  Provider  : {provider_info}")
@@ -116,13 +136,18 @@ def _print_welcome():
 
     if not has_key:
         click.echo(click.style("  💡 Szybki start:", fg="yellow", bold=True))
-        click.echo(click.style("     fixos llm", fg="yellow") + "          # wybierz provider i pobierz klucz")
-        click.echo(click.style("     fixos token set <KLUCZ>", fg="yellow") + "  # zapisz klucz")
-        click.echo(click.style("     fixos fix", fg="yellow") + "          # uruchom diagnostykę")
+        click.echo(click.style("     fixos llm", fg="yellow") + "                    # wybierz provider i pobierz klucz")
+        click.echo(click.style("     fixos token set <KLUCZ>", fg="yellow") + "      # zapisz klucz (auto-detekcja providera)")
+        click.echo(click.style("     fixos fix", fg="yellow") + "                    # uruchom diagnostykę + naprawę")
+        click.echo()
+        click.echo(click.style("  ⚡ Lub po prostu:", fg="yellow"))
+        click.echo(click.style("     fixos fix", fg="yellow") + "  # zapyta o provider interaktywnie")
     else:
-        click.echo(click.style("  💡 Uruchom diagnostykę:", fg="yellow", bold=True))
-        click.echo(click.style("     fixos fix", fg="yellow") + "          # pełna diagnostyka + naprawa")
-        click.echo(click.style("     fixos scan", fg="yellow") + "         # tylko skan bez AI")
+        click.echo(click.style("  💡 Przykłady użycia:", fg="yellow", bold=True))
+        click.echo(click.style("     fixos fix", fg="yellow") + "                           # pełna diagnostyka + naprawa")
+        click.echo(click.style("     fixos fix --modules security,resources", fg="yellow") + " # bezpieczeństwo + zasoby")
+        click.echo(click.style("     fixos scan --modules security", fg="yellow") + "        # tylko skan bezpieczeństwa")
+        click.echo(click.style("     fixos orchestrate --dry-run", fg="yellow") + "          # podgląd napraw bez wykonania")
     click.echo()
 
 
@@ -266,10 +291,18 @@ def fix(provider, token, model, no_banner, mode, timeout, modules, no_show_data,
 
     errors = cfg.validate()
     if errors:
-        for err in errors:
-            click.echo(click.style(f"❌ {err}", fg="red"))
-        click.echo(f"\nKonfiguracja:\n{cfg.summary()}")
-        sys.exit(1)
+        # Brak klucza API – zaproponuj interaktywny wybór providera
+        click.echo(click.style("\n⚠️  Brak konfiguracji LLM.", fg="yellow"))
+        new_cfg = interactive_provider_setup()
+        if new_cfg is None:
+            click.echo(click.style("❌ Anulowano. Użyj: fixos llm  aby zobaczyć dostępne providery.", fg="red"))
+            sys.exit(1)
+        cfg = new_cfg
+        errors = cfg.validate()
+        if errors:
+            for err in errors:
+                click.echo(click.style(f"❌ {err}", fg="red"))
+            sys.exit(1)
 
     click.echo(click.style("\n⚙️  Konfiguracja:", fg="cyan"))
     click.echo(cfg.summary())
@@ -678,9 +711,17 @@ def orchestrate(provider, token, model, no_banner, mode, modules, dry_run, max_i
 
     errors = cfg.validate()
     if errors:
-        for err in errors:
-            click.echo(click.style(f"❌ {err}", fg="red"))
-        sys.exit(1)
+        click.echo(click.style("\n⚠️  Brak konfiguracji LLM.", fg="yellow"))
+        new_cfg = interactive_provider_setup()
+        if new_cfg is None:
+            click.echo(click.style("❌ Anulowano. Użyj: fixos llm  aby zobaczyć dostępne providery.", fg="red"))
+            sys.exit(1)
+        cfg = new_cfg
+        errors = cfg.validate()
+        if errors:
+            for err in errors:
+                click.echo(click.style(f"❌ {err}", fg="red"))
+            sys.exit(1)
 
     click.echo(click.style("\n⚙️  Konfiguracja:", fg="cyan"))
     click.echo(cfg.summary())
@@ -716,28 +757,33 @@ def orchestrate(provider, token, model, no_banner, mode, modules, dry_run, max_i
         click.echo(click.style("  ✅ LLM nie wykrył problemów wymagających naprawy.", fg="green"))
         return
 
+    from .utils.terminal import _C, render_tree_colored
+
     click.echo(click.style(f"\n📊 Graf problemów ({len(problems)} wykrytych):", fg="cyan"))
-    click.echo(orch.graph.render_tree())
+    print(render_tree_colored(orch.graph.nodes, orch.graph.execution_order))
     click.echo()
 
     # Główna pętla napraw
     summary = orch.run_sync()
 
     # Podsumowanie
-    click.echo(click.style("\n═" * 65, fg="cyan"))
-    click.echo(click.style("  📊 PODSUMOWANIE SESJI", fg="cyan"))
-    click.echo(click.style("═" * 65, fg="cyan"))
+    print(f"\n{_C.CYAN}{_C.BOLD}{'═' * 65}{_C.RESET}")
+    print(f"{_C.CYAN}{_C.BOLD}  📊 PODSUMOWANIE SESJI{_C.RESET}")
+    print(f"{_C.CYAN}{_C.BOLD}{'═' * 65}{_C.RESET}")
     by_status = summary.get("by_status", {})
     resolved = len(by_status.get("resolved", []))
-    failed = len(by_status.get("failed", []))
-    pending = len(by_status.get("pending", []))
-    click.echo(f"  ✅ Naprawiono  : {resolved}")
-    click.echo(f"  ❌ Nieudane    : {failed}")
-    click.echo(f"  ⏳ Pozostałe   : {pending}")
-    click.echo(f"  ⏱️  Czas sesji  : {summary.get('elapsed_seconds', 0)}s")
-    click.echo()
-    click.echo(click.style("  Aktualny stan grafu:", fg="cyan"))
-    click.echo(orch.graph.render_tree())
+    failed   = len(by_status.get("failed", []))
+    skipped  = len(by_status.get("skipped", []))
+    pending  = len(by_status.get("pending", []))
+    elapsed  = summary.get("elapsed_seconds", 0)
+    print(f"  {_C.GREEN}✅ Naprawiono  : {resolved}{_C.RESET}")
+    print(f"  {_C.RED}❌ Nieudane    : {failed}{_C.RESET}")
+    print(f"  {_C.YELLOW}⏭️  Pominięte   : {skipped}{_C.RESET}")
+    print(f"  {_C.DIM}⏳ Pozostałe   : {pending}{_C.RESET}")
+    print(f"  {_C.DIM}⏱️  Czas sesji  : {elapsed}s{_C.RESET}")
+    print()
+    print(f"{_C.CYAN}  Aktualny stan grafu:{_C.RESET}")
+    print(render_tree_colored(orch.graph.nodes, orch.graph.execution_order))
 
     if output:
         try:

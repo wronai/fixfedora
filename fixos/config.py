@@ -292,6 +292,121 @@ class FixOsConfig:
         )
 
 
+KEY_PREFIXES: list[tuple[str, str]] = [
+    ("AIzaSy", "gemini"),
+    ("sk-ant-", "anthropic"),
+    ("sk-or-", "openrouter"),
+    ("sk-proj-", "openai"),
+    ("sk-", "openai"),
+    ("xai-", "xai"),
+    ("gsk_", "groq"),
+    ("r8_", "together"),
+    ("hf_", "together"),
+    ("sk-cohere-", "cohere"),
+]
+
+
+def detect_provider_from_key(key: str) -> Optional[str]:
+    """Wykrywa provider na podstawie prefiksu klucza API."""
+    for prefix, provider in KEY_PREFIXES:
+        if key.startswith(prefix):
+            return provider
+    return None
+
+
+def interactive_provider_setup() -> Optional["FixOsConfig"]:
+    """
+    Interaktywny wybór providera gdy brak konfiguracji.
+    Wyświetla numerowaną listę providerów i pyta użytkownika.
+    Zwraca FixOsConfig lub None jeśli user zrezygnował.
+    """
+    free = [(n, d) for n, d in PROVIDER_DEFAULTS.items() if d.get("free_tier")]
+    paid = [(n, d) for n, d in PROVIDER_DEFAULTS.items() if not d.get("free_tier")]
+    ordered = free + paid
+
+    print()
+    print("  ┌─────────────────────────────────────────────────────────────┐")
+    print("  │  ⚙️  Brak konfiguracji LLM – wybierz provider               │")
+    print("  └─────────────────────────────────────────────────────────────┘")
+    print()
+    print("  🟢 DARMOWE:")
+    idx = 1
+    num_map: dict[int, str] = {}
+    for name, d in free:
+        key_env = d.get("key_env") or "(brak)"
+        print(f"  [{idx:2d}] {name:<12} {d['model']:<35} {key_env}")
+        num_map[idx] = name
+        idx += 1
+    print()
+    print("  💰 PŁATNE:")
+    for name, d in paid:
+        key_env = d.get("key_env") or "(brak)"
+        print(f"  [{idx:2d}] {name:<12} {d['model']:<35} {key_env}")
+        num_map[idx] = name
+        idx += 1
+    print()
+    print("  [0]  Anuluj")
+    print()
+
+    while True:
+        try:
+            raw = input("  Wybierz numer providera: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return None
+        if raw == "0":
+            return None
+        if raw.isdigit() and int(raw) in num_map:
+            chosen = num_map[int(raw)]
+            break
+        print(f"  ❌ Nieprawidłowy wybór. Wpisz numer 1–{len(num_map)} lub 0 aby anulować.")
+
+    pdef = PROVIDER_DEFAULTS[chosen]
+    key_env = pdef.get("key_env")
+
+    if chosen == "ollama":
+        print(f"\n  ✅ Wybrano: {chosen} (lokalny, brak klucza API)")
+        return FixOsConfig.load(provider=chosen)
+
+    print(f"\n  ✅ Wybrano: {chosen}")
+    print(f"  Pobierz klucz API: {pdef.get('key_url', '')}")
+    print()
+    try:
+        key = input(f"  Wklej klucz API ({key_env}): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+    if not key:
+        print("  ❌ Brak klucza – anulowano.")
+        return None
+
+    # Zapisz do .env
+    env_path = Path.cwd() / ".env"
+    lines: list[str] = []
+    if env_path.exists():
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+
+    key_line = f"{key_env}={key}"
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.startswith(f"{key_env}="):
+            lines[i] = key_line
+            replaced = True
+            break
+    if not replaced:
+        if not any(ln.startswith("LLM_PROVIDER=") for ln in lines):
+            lines.insert(0, f"LLM_PROVIDER={chosen}")
+        lines.append(key_line)
+
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    env_path.chmod(0o600)
+
+    masked = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+    print(f"  💾 Zapisano {key_env}={masked} → {env_path}")
+    print()
+
+    return FixOsConfig.load(provider=chosen, api_key=key)
+
+
 def get_providers_list() -> list[dict]:
     """Zwraca listę providerów jako listę słowników."""
     result = []

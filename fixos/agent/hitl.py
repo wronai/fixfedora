@@ -18,111 +18,16 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-
-def _supports_color() -> bool:
-    """Check if terminal supports ANSI colors."""
-    return hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
-
-
-class _C:
-    """ANSI color codes – no-op when terminal has no color support."""
-    _on = _supports_color()
-
-    RED     = "\033[91m"  if _on else ""
-    GREEN   = "\033[92m"  if _on else ""
-    YELLOW  = "\033[93m"  if _on else ""
-    BLUE    = "\033[94m"  if _on else ""
-    CYAN    = "\033[96m"  if _on else ""
-    WHITE   = "\033[97m"  if _on else ""
-    BOLD    = "\033[1m"   if _on else ""
-    DIM     = "\033[2m"   if _on else ""
-    RESET   = "\033[0m"   if _on else ""
-    BG_DARK = "\033[40m"  if _on else ""
-
-
-def _render_md(text: str) -> None:
-    """
-    Renders LLM markdown reply to terminal with ANSI colorization.
-
-    Handles:
-    - Severity icons (🔴🟡🟢) with color
-    - **bold** text
-    - `inline code`
-    - ```code blocks```
-    - ━━━ section headers
-    - [N] action items
-    """
-    in_code_block = False
-    code_lang = ""
-
-    for raw_line in text.splitlines():
-        line = raw_line
-
-        # ── Code block fence ──────────────────────────────────────
-        if line.strip().startswith("```"):
-            if not in_code_block:
-                in_code_block = True
-                code_lang = line.strip()[3:].strip()
-                print(f"{_C.BG_DARK}{_C.DIM}  ┌─ {code_lang or 'code'} {'─' * (50 - len(code_lang))}┐{_C.RESET}")
-            else:
-                in_code_block = False
-                print(f"{_C.BG_DARK}{_C.DIM}  └{'─' * 54}┘{_C.RESET}")
-            continue
-
-        if in_code_block:
-            print(f"{_C.BG_DARK}{_C.CYAN}  │ {_C.GREEN}{line}{_C.RESET}")
-            continue
-
-        # ── Section headers (━━━ TEXT ━━━) ────────────────────────
-        if re.match(r'^[━═─]{3,}', line.strip()):
-            print(f"{_C.CYAN}{_C.BOLD}  {line}{_C.RESET}")
-            continue
-
-        # ── Severity lines ─────────────────────────────────────────
-        if line.strip().startswith("🔴"):
-            line = _colorize_inline(line)
-            print(f"{_C.RED}{_C.BOLD}{line}{_C.RESET}")
-            continue
-        if line.strip().startswith("🟡"):
-            line = _colorize_inline(line)
-            print(f"{_C.YELLOW}{_C.BOLD}{line}{_C.RESET}")
-            continue
-        if line.strip().startswith("🟢"):
-            line = _colorize_inline(line)
-            print(f"{_C.GREEN}{_C.BOLD}{line}{_C.RESET}")
-            continue
-
-        # ── Action items [N] / [A] / [S] / [Q] ────────────────────
-        if re.match(r'^\s*\[([\dASDQ?!])\]', line):
-            line = _colorize_inline(line)
-            print(f"{_C.YELLOW}{line}{_C.RESET}")
-            continue
-
-        # ── **Komenda:** / **Co robi:** labels ─────────────────────
-        if "**Komenda:**" in line or "**Co robi:**" in line:
-            line = _colorize_inline(line)
-            print(f"{_C.CYAN}{line}{_C.RESET}")
-            continue
-
-        # ── Regular line with possible inline markup ───────────────
-        print(_colorize_inline(line))
-
-
-def _colorize_inline(line: str) -> str:
-    """Apply inline markdown colorization: **bold**, `code`."""
-    # `inline code` → cyan
-    line = re.sub(
-        r'`([^`]+)`',
-        lambda m: f"{_C.CYAN}`{m.group(1)}`{_C.RESET}",
-        line,
-    )
-    # **bold** → bold white
-    line = re.sub(
-        r'\*\*([^*]+)\*\*',
-        lambda m: f"{_C.BOLD}{_C.WHITE}{m.group(1)}{_C.RESET}",
-        line,
-    )
-    return line
+from ..providers.llm import LLMClient, LLMError
+from ..utils.anonymizer import anonymize, display_anonymized_preview
+from ..utils.web_search import search_all, format_results_for_llm
+from ..utils.terminal import _C, render_md as _render_md, colorize as _colorize_inline
+from ..config import FixOsConfig
+from ..platform_utils import (
+    is_dangerous, elevate_cmd, run_command,
+    setup_signal_timeout, cancel_signal_timeout,
+    get_os_info, get_package_manager,
+)
 
 
 SYSTEM_PROMPT = """You are an expert Linux/Windows/macOS system diagnostics assistant.

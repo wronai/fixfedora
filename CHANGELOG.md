@@ -1,3 +1,31 @@
+## [2.1.8] - 2026-02-18
+
+### Summary
+
+feat(tests): CLI interface improvements
+
+### Docs
+
+- docs: update README
+
+### Test
+
+- update tests/conftest.py
+- update tests/e2e/test_executor.py
+- update tests/unit/test_executor.py
+
+### Other
+
+- docker: update docker-compose.yml
+- update fixos/agent/hitl.py
+- update fixos/cli.py
+- update fixos/config.py
+- update fixos/diagnostics/system_checks.py
+- update fixos/orchestrator/orchestrator.py
+- update fixos/utils/anonymizer.py
+- update fixos/utils/terminal.py
+
+
 ## [2.1.7] - 2026-02-18
 
 ### Summary

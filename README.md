@@ -9,8 +9,17 @@
 
 # fixOS v2.2 🔧🤖
 
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python)](https://www.python.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub](https://img.shields.io/badge/github-wronai%2Ffixos-black?logo=github)](https://github.com/wronai/fixos)
+[![Providers](https://img.shields.io/badge/LLM%20providers-12-orange)](https://github.com/wronai/fixos#-dostępni-providerzy-llm-12)
+[![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey)](https://github.com/wronai/fixos)
+[![Tests](https://img.shields.io/badge/tests-274%20passing-brightgreen)](https://github.com/wronai/fixos/actions)
+
 **AI diagnostyka i naprawa systemów** – Linux, Windows, macOS  
 z anonimizacją danych, trybem HITL/Autonomous, grafem problemów i 12 providerami LLM.
+
+> 🔗 **GitHub**: https://github.com/wronai/fixos
 
 ---
 
@@ -176,6 +185,19 @@ Zawsze pokazywana przed wysłaniem do LLM. Maskowane kategorie:
 | `audio` | ✅ | ✅ | ✅ | ALSA/PipeWire/SOF (Linux), WMI Audio (Win), CoreAudio (Mac) |
 | `thumbnails` | ✅ | ➖ | ➖ | ffmpegthumbnailer, cache, GNOME gsettings |
 | `hardware` | ✅ | ✅ | ✅ | DMI/WMI/system_profiler, BIOS, GPU, czujniki, bateria |
+| `security` | ✅ | ✅ | ✅ | Firewall, otwarte porty, SELinux/AppArmor, SSH config, fail2ban, SUID |
+| `resources` | ✅ | ✅ | ✅ | Co zajmuje dysk, top procesów CPU/RAM, autostart, OOM events |
+
+```bash
+# Tylko bezpieczeństwo
+fixos scan --modules security
+
+# Zasoby – co zajmuje dysk i pamięć
+fixos scan --modules resources
+
+# Pełna diagnostyka z naprawą
+fixos fix --modules system,security,resources
+```
 
 ---
 

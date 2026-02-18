@@ -9,6 +9,7 @@ import socket
 import getpass
 import os
 from dataclasses import dataclass, field
+from .terminal import _C
 
 
 @dataclass
@@ -138,36 +139,77 @@ def anonymize(data_str: str) -> tuple[str, AnonymizationReport]:
 def display_anonymized_preview(data_str: str, report: AnonymizationReport, max_lines: int = 80):
     """
     Wyświetla użytkownikowi zanonimizowane dane przed wysłaniem do LLM.
-    Formatuje jako czytelny markdown.
+    Formatuje jako czytelny markdown z kolorami ANSI.
     """
-    print("\n" + "═" * 65)
-    print("  📋 DANE DIAGNOSTYCZNE (zanonimizowane) – wysyłane do LLM")
-    print("═" * 65)
+    print(f"\n{_C.CYAN}{_C.BOLD}{'\u2550' * 65}{_C.RESET}")
+    print(f"{_C.CYAN}{_C.BOLD}  📋 DANE DIAGNOSTYCZNE (zanonimizowane) – wysyłane do LLM{_C.RESET}")
+    print(f"{_C.CYAN}{_C.BOLD}{'\u2550' * 65}{_C.RESET}")
 
-    # Próbuj sformatować jako czytelny markdown
     formatted = _format_diagnostics_markdown(data_str)
-    
+
     lines = formatted.splitlines()
     if len(lines) > max_lines:
-        shown = lines[:max_lines // 2] + ["  ...", "  [skrócono - pełne dane wysyłane do LLM]", "  ..."] + lines[-(max_lines // 2):]
+        half = max_lines // 2
+        shown = (
+            lines[:half]
+            + [f"  {_C.DIM}...{_C.RESET}",
+               f"  {_C.DIM}[skrócono – pełne dane wysyłane do LLM]{_C.RESET}",
+               f"  {_C.DIM}...{_C.RESET}"]
+            + lines[-half:]
+        )
     else:
         shown = lines
 
-    # Wyświetl z limitowaną szerokością
-    max_width = 90
+    max_width = 100
     for line in shown:
-        # Zawijaj długie linie
-        if len(line) > max_width:
-            # Dla długich linii (np. dict), skróć z "..."
-            print(f"  {line[:max_width-3]}...")
-        else:
-            print(f"  {line}")
+        rendered = _colorize_md_line(line)
+        # Strip ANSI for length check, truncate raw if needed
+        raw_len = len(re.sub(r'\033\[[^m]*m', '', rendered))
+        if raw_len > max_width:
+            # Truncate the original line (before colorizing) then re-colorize
+            rendered = _colorize_md_line(line[:max_width - 3] + "...")
+        print(f"  {rendered}")
 
-    print("\n" + "─" * 65)
-    print("  🔒 Anonimizacja – co zostało ukryte:")
-    print(report.summary())
-    print(f"  Rozmiar: {report.original_length:,} → {report.anonymized_length:,} znaków")
-    print("─" * 65)
+    print(f"\n{_C.DIM}{'\u2500' * 65}{_C.RESET}")
+    print(f"{_C.BOLD}  🔒 Anonimizacja – co zostało ukryte:{_C.RESET}")
+    for rep_line in report.summary().splitlines():
+        print(f"{_C.GREEN}  {rep_line}{_C.RESET}")
+    print(f"  {_C.DIM}Rozmiar: {report.original_length:,} → {report.anonymized_length:,} znaków{_C.RESET}")
+    print(f"{_C.DIM}{'\u2500' * 65}{_C.RESET}")
+
+
+def _colorize_md_line(line: str) -> str:
+    """Apply ANSI colors to a single markdown-formatted diagnostic line."""
+    stripped = line.lstrip()
+
+    # ### Section heading
+    if stripped.startswith("### "):
+        title = stripped[4:]
+        return f"{_C.CYAN}{_C.BOLD}{line[:len(line)-len(stripped)]}### {title}{_C.RESET}"
+
+    # ``` fence lines
+    if stripped.startswith("```"):
+        return f"{_C.DIM}{line}{_C.RESET}"
+
+    # - **key**: `value`  or  - **key**: value
+    if stripped.startswith("- **"):
+        # bold key
+        line = re.sub(r'\*\*([^*]+)\*\*', lambda m: f"{_C.BOLD}{_C.WHITE}{m.group(1)}{_C.RESET}", line)
+        # inline code value
+        line = re.sub(r'`([^`]+)`', lambda m: f"{_C.CYAN}`{m.group(1)}`{_C.RESET}", line)
+        return line
+
+    # indented code content (inside ``` blocks rendered as plain lines)
+    if line.startswith("  ") and stripped and not stripped.startswith("-") and not stripped.startswith("#"):
+        return f"{_C.GREEN}{line}{_C.RESET}"
+
+    # ... truncation markers
+    if stripped.startswith("..."):
+        return f"{_C.DIM}{line}{_C.RESET}"
+
+    # inline code anywhere
+    line = re.sub(r'`([^`]+)`', lambda m: f"{_C.CYAN}`{m.group(1)}`{_C.RESET}", line)
+    return line
 
 
 def _format_diagnostics_markdown(data_str: str) -> str:

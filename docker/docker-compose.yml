@@ -67,6 +67,27 @@ services:
       - THUMBNAILS_BROKEN=1
       - FIXOS_TEST_MODE=1
 
+  # ── Uszkodzona sieć ───────────────────────────────────
+  broken-network:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/broken-network/Dockerfile
+    image: fixos-broken-network:latest
+    container_name: fixos-broken-network
+    environment:
+      - SCENARIO=broken-network
+      - NETWORK_BROKEN=1
+      - DNS_BROKEN=1
+      - RFKILL_BLOCKED=1
+      - FIXOS_TEST_MODE=1
+    command: >
+      sh -c "
+        echo '=== Scenariusz: broken-network ===' &&
+        verify-scenario.sh &&
+        python3 /usr/local/bin/simulate-network-diag.py
+      "
+
   # ── Pełne uszkodzenie ─────────────────────────────────
   broken-full:
     <<: *common
@@ -79,6 +100,7 @@ services:
       - SCENARIO=broken-full
       - AUDIO_BROKEN=1
       - THUMBNAILS_BROKEN=1
+      - NETWORK_BROKEN=1
       - SERVICES_FAILED=1
       - DNF_UPDATES_PENDING=4
       - FIXOS_TEST_MODE=1
@@ -96,9 +118,10 @@ services:
     command: >
       sh -c "
         pip install pytest pytest-cov pytest-mock --quiet &&
-        python -m pytest tests/e2e/ -v --tb=short
+        python -m pytest tests/e2e/ tests/unit/ -v --tb=short
           --cov=fixos --cov-report=term-missing
           --cov-report=html:/reports/coverage
+          -m 'not real_api'
       "
     depends_on:
       - base
@@ -114,6 +137,20 @@ services:
       sh -c "
         pip install pytest pytest-mock --quiet &&
         python -m pytest tests/unit/ -v --tb=short
+          --cov=fixos --cov-report=term-missing
+      "
+
+  # ── Testy CLI (izolowane) ─────────────────────────────
+  cli-tests:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile
+    container_name: fixos-cli-tests
+    command: >
+      sh -c "
+        pip install pytest pytest-mock --quiet &&
+        python -m pytest tests/e2e/test_cli.py tests/e2e/test_executor.py -v --tb=short
       "
 
 networks:
