@@ -1,162 +1,250 @@
-# fixfedora 🔧🤖
+# fixfedora v2.0 🔧🤖
 
-**AI-powered diagnostyka i naprawa systemu Fedora Linux z anonimizacją danych**
+**AI diagnostyka i naprawa Fedora Linux** – audio, thumbnails, sprzęt Lenovo Yoga
+z anonimizacją danych, trybem HITL/Autonomous i zewnętrznymi źródłami wiedzy.
 
 ```
   __  _      ___        __       _
  / _|(_)_ __/ __| ___  / _| ___ | |_  ___  _ _ __ _
 |  _|| | \ \ (__/ -_) |  _|/ -_)|  _|/ _ \| '_/ _` |
 |_|  |_|_/_/\_,_\___| |_|  \___| \__|\/\__/|_| \__,_|
-```
-
-## Co robi fixfedora?
-
-1. **Zbiera metryki systemowe** – CPU, RAM, dyski, sieć, procesy, `dnf`, `journalctl`, `systemctl`
-2. **Anonimizuje wrażliwe dane** – maskuje IP, ścieżki `/home/<user>`, hostname, tokeny API
-3. **Wysyła dane do LLM** – w sposób jawny, bez ukrytego przetwarzania
-4. **Interaktywny shell** – rozmowa z AI o problemach i decyzjach naprawczych (max 1h)
-5. **Bezpieczne wykonanie komend** – każda operacja wymaga potwierdzenia `Y/n`
-
----
-
-## Instalacja
-
-### Wymagania systemowe (Fedora)
-
-```bash
-sudo dnf install python3-psutil python3-pyyaml python3-requests
-```
-
-### Instalacja paczki
-
-```bash
-# Ze źródeł (development)
-git clone https://github.com/wronai/fixfedora.git
-cd fixfedora
-pip install -e .
-
-# Lub przez pip (po publikacji na PyPI)
-pip install fixfedora
+  Fedora AI Diagnostics  •  v2.0.0
 ```
 
 ---
 
-## Przykładowe użycie
-
-### 1. Podstawowe – pełna diagnostyka + LLM
+## Szybki start (3 kroki)
 
 ```bash
-fixfedora --token sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-```
+# 1. Instalacja
+pip install -e ".[dev]"
 
-**Przykładowa sesja:**
+# 2. Token Google Gemini (domyślny, darmowy)
+fixfedora token set AIzaSy...          # lub --provider openai/xai
 
-```
-  __  _      ___        __       _
- / _|(_)_ __/ __| ___  / _| ___ | |_  ___  _ _ __ _
-...
-
-🔍 Zbieranie diagnostyki systemu Fedora...
-  → Fedora (dnf/systemd/journal)...
-✅ Diagnostyka zebrana i zanonimizowana.
-
-⏰ Uruchamianie sesji LLM (model: gpt-4o-mini, timeout: 3600s)...
-  Tip: wpisz '!<komenda>' aby wykonać komendę (np. !dnf check-update)
-  Tip: wpisz 'q' aby zakończyć sesję
-
-════════════════════════════════════════════════════════════
-  🤖 fixfedora LLM Shell  |  Model: gpt-4o-mini
-  ⏰ Sesja: max 01:00:00  |  Wpisz 'q' aby wyjść
-════════════════════════════════════════════════════════════
-
-────────────────────────────────────────────────────────────
-🔍 DIAGNOZA: Wykryto 3 problemy wymagające uwagi
-
-Wykryte problemy:
-1. 🔴 15 pakietów do aktualizacji (dnf check-update)
-   → Komenda: `sudo dnf upgrade -y`
-2. 🟡 Usługa bluetooth.service failed (systemctl --failed)
-   → Komenda: `sudo systemctl restart bluetooth`
-3. 🟡 70% użycia dysku /var (psutil)
-   → Komenda: `sudo dnf clean all && sudo journalctl --vacuum-size=500M`
-
-Co naprawiamy? (numer/all/skip/q)
-────────────────────────────────────────────────────────────
-  ⏰ Pozostały czas: 00:59:47
-
-fixfedora [00:59:47] ❯ 1
-
-🧠 LLM analizuje... 
-────────────────────────────────────────────────────────────
-Wykonuję aktualizację systemu. To bezpieczna operacja, jednak zalecam
-wcześniejsze wykonanie snapshotu jeśli używasz LVM/Btrfs.
-
-Komenda: `sudo dnf upgrade -y`
-────────────────────────────────────────────────────────────
-
-fixfedora [00:59:31] ❯ !sudo dnf upgrade -y
-
-  [exec] sudo dnf upgrade -y
-  Potwierdź wykonanie (Y/n): Y
-  ✅ Sukces
+# 3. Uruchom diagnostykę
+fixfedora fix
 ```
 
 ---
 
-### 2. Tylko diagnostyka – zapis do pliku JSON
+## Komendy CLI
 
-```bash
-fixfedora --diagnose-only --output /tmp/fedora-report.json
-# Token nie jest wymagany w trybie --diagnose-only
+```
+fixfedora scan              – tylko diagnostyka (bez LLM)
+fixfedora fix               – diagnoza + sesja naprawcza (HITL lub autonomous)
+fixfedora token set KEY     – zapisz token API
+fixfedora token show        – pokaż aktualny token (zamaskowany)
+fixfedora token clear       – usuń token
+fixfedora config show       – pokaż konfigurację
+fixfedora config init       – utwórz .env z szablonu
+fixfedora config set K V    – ustaw wartość w .env
+fixfedora providers         – lista providerów LLM
+fixfedora test-llm          – testuj połączenie z LLM
 ```
 
-### 3. Z alternatywnym API – xAI Grok
+### Przykłady użycia
 
 ```bash
-fixfedora \
-  --token xai-TWOJ_KLUCZ \
-  --base-url https://api.x.ai/v1 \
-  --model grok-beta
-```
+# Tylko diagnostyka audio + zapis do pliku
+fixfedora scan --audio --output /tmp/audio-report.json
 
-### 4. Sesja 30-minutowa z verbose
+# Napraw audio i thumbnails (HITL – pyta o potwierdzenie)
+fixfedora fix --modules audio,thumbnails
 
-```bash
-fixfedora --token sk-... --timeout 1800 --verbose
-```
+# Tryb autonomiczny (agent sam naprawia, max 5 akcji)
+fixfedora fix --mode autonomous --max-fixes 5
 
-### 5. Z plikiem konfiguracyjnym
+# Bez pokazywania danych użytkownikowi przed wysłaniem
+fixfedora fix --no-show-data
 
-```bash
-# Utwórz plik konfiguracyjny
-cp fixfedora.conf.example ~/.fixfedora.conf
-nano ~/.fixfedora.conf          # Wstaw swój klucz API
-chmod 600 ~/.fixfedora.conf     # Ogranicz uprawnienia
+# Z xAI Grok
+fixfedora fix --provider xai --token xai-...
 
-# Uruchom bez jawnego tokena
-fixfedora
+# Timeout 30 minut
+fixfedora fix --timeout 1800
+
+# Test połączenia z Gemini
+fixfedora test-llm
 ```
 
 ---
 
-## Bezpieczeństwo
+## Tryby agenta
 
-### Co jest anonimizowane?
+### 👤 Human-in-the-Loop (HITL) – domyślny
 
-| Dane wrażliwe | Zamiennik |
+```
+LLM sugeruje → Ty decydujesz → Skrypt wykonuje
+
+fixfedora [00:58:42] ❯ 1           ← napraw problem nr 1
+fixfedora [00:58:30] ❯ !dnf list   ← wykonaj komendę bezpośrednio
+fixfedora [00:58:10] ❯ search sof  ← szukaj w zewnętrznych źródłach
+fixfedora [00:57:55] ❯ all         ← napraw wszystko
+fixfedora [00:57:40] ❯ q           ← zakończ
+```
+
+### 🤖 Autonomous – agent działa samodzielnie
+
+```bash
+fixfedora fix --mode autonomous
+```
+- Agent analizuje → wykonuje → weryfikuje → kontynuuje
+- Protokół JSON: `{ "action": "EXEC", "command": "...", "reason": "..." }`
+- **Zabezpieczenia**: lista zabronionych komend (rm -rf /, mkfs, fdisk...)
+- Każde `EXEC` jest logowane z wynikiem
+- Limit: `--max-fixes 10` (domyślnie)
+- Wymaga jawnego `yes` na starcie
+
+---
+
+## Anonimizacja danych
+
+**Zawsze pokazywana użytkownikowi** przed wysłaniem do LLM (`SHOW_ANONYMIZED_DATA=true`):
+
+```
+═══════════════════════════════════════════════════════════════
+  📋 DANE DIAGNOSTYCZNE (zanonimizowane) – wysyłane do LLM
+═══════════════════════════════════════════════════════════════
+  ... [zanonimizowane dane] ...
+
+  🔒 Anonimizacja – co zostało ukryte:
+  ✓ Hostname: 1 wystąpień
+  ✓ Username: 3 wystąpień
+  ✓ Adresy IPv4: 2 wystąpień
+  ✓ UUID (serial/hardware): 4 wystąpień
+═══════════════════════════════════════════════════════════════
+```
+
+Maskowane dane: IPv4, MAC, hostname, username, `/home/<user>`, tokeny API, UUID, numery seryjne.
+
+---
+
+## Moduły diagnostyki
+
+| Moduł | Co sprawdza |
 |:--|:--|
-| Adresy IP (`192.168.1.100`) | `192.168.XXX.XXX` |
-| Ścieżki użytkownika (`/home/jan`) | `/home/[USER]` |
-| Aktualny hostname | `[HOSTNAME]` |
-| Nazwa użytkownika | `[USER]` |
-| Tokeny API (`sk-abc123...`) | `sk-[REDACTED]` |
-| Hasła w zmiennych (`PASSWORD=xyz`) | `PASSWORD=[REDACTED]` |
+| `system` | CPU, RAM, dyski, `systemctl --failed`, `dnf check-update`, `journalctl` |
+| `audio` | ALSA karty, PipeWire/WirePlumber status, SOF firmware, mikrofon Lenovo |
+| `thumbnails` | ffmpegthumbnailer, totem-nautilus, cache ~/.cache/thumbnails, GNOME ustawienia |
+| `hardware` | DMI (Lenovo Yoga), BIOS, GPU, touchpad, kamera, ACPI, czujniki |
 
-### Co NIE jest robione
+---
 
-- ❌ Dane nie są trwale zapisywane (brak logów po sesji)
-- ❌ Skrypt nie zbiera haseł ani zawartości plików domowych
-- ❌ Brak automatycznego wykonywania komend bez potwierdzenia
+## Znane problemy Lenovo Yoga (Fedora)
+
+### 🔊 Brak dźwięku po aktualizacji
+
+**Przyczyna**: Brak lub niekompatybilna wersja `sof-firmware` (Sound Open Firmware)
+
+```bash
+# Diagnoza
+fixfedora scan --audio
+
+# Naprawa
+sudo dnf install sof-firmware
+systemctl --user restart pipewire wireplumber
+```
+
+### 🖼️ Brak podglądów plików
+
+**Przyczyna**: Brak thumbnailerów usuniętych przez aktualizację Fedora
+
+```bash
+# Naprawa
+sudo dnf install ffmpegthumbnailer totem-nautilus gstreamer1-plugins-good
+nautilus -q
+rm -rf ~/.cache/thumbnails/fail/*
+```
+
+---
+
+## Zewnętrzne źródła wiedzy (fallback)
+
+Gdy LLM nie zna rozwiązania, fixfedora szuka automatycznie w:
+
+- **Fedora Bugzilla** – baza zgłoszonych błędów
+- **ask.fedoraproject.org** – forum społeczności
+- **Arch Wiki** – doskonałe źródło dla ogólnych problemów Linux
+- **GitHub Issues** – PipeWire, ALSA, linux-hardware repos
+- **DuckDuckGo** – ogólne wyszukiwanie (bez klucza API)
+- **Google via SerpAPI** – najlepsze wyniki (opcjonalny klucz `SERPAPI_KEY`)
+
+```bash
+# Ręczne wyszukiwanie w sesji HITL
+fixfedora [00:58:00] ❯ search sof-firmware lenovo yoga no sound
+```
+
+---
+
+## Konfiguracja (.env)
+
+```bash
+# Stwórz plik konfiguracyjny
+fixfedora config init
+
+# Lub ręcznie:
+cp .env.example .env
+chmod 600 .env
+```
+
+Kluczowe ustawienia:
+
+```env
+LLM_PROVIDER=gemini           # gemini|openai|xai|openrouter|ollama
+GEMINI_API_KEY=AIzaSy...      # Klucz Gemini (darmowy)
+AGENT_MODE=hitl               # hitl|autonomous
+SHOW_ANONYMIZED_DATA=true     # Pokaż dane przed wysłaniem
+ENABLE_WEB_SEARCH=true        # Fallback do zewnętrznych źródeł
+SESSION_TIMEOUT=3600          # Timeout sesji (1h)
+```
+
+---
+
+## Testy i Docker
+
+### Uruchomienie testów
+
+```bash
+# Unit testy (bez API)
+pytest tests/unit/ -v
+
+# E2E testy z mock LLM
+pytest tests/e2e/ -v
+
+# E2E testy z prawdziwym API (wymaga tokena w .env)
+pytest tests/e2e/ -v -k "real_llm"
+
+# Pokrycie kodu
+pytest --cov=fixfedora --cov-report=html
+```
+
+### Docker – symulowane środowiska
+
+```bash
+# Zbuduj wszystkie obrazy
+docker compose -f docker/docker-compose.yml build
+
+# Testuj scenariusz broken-audio
+docker compose -f docker/docker-compose.yml run broken-audio
+
+# Testuj scenariusz broken-thumbnails
+docker compose -f docker/docker-compose.yml run broken-thumbnails
+
+# Pełny scenariusz (wszystkie problemy)
+docker compose -f docker/docker-compose.yml run broken-full
+
+# Uruchom testy e2e w Dockerze
+docker compose -f docker/docker-compose.yml run e2e-tests
+```
+
+### Środowiska Docker
+
+| Obraz | Scenariusz |
+|:--|:--|
+| `fixfedora-broken-audio` | Brak sof-firmware, PipeWire failed, no ALSA cards |
+| `fixfedora-broken-thumbnails` | Brak thumbnailerów, pusty cache, brak GStreamer |
+| `fixfedora-broken-full` | Wszystkie problemy naraz + pending updates + failed services |
 
 ---
 
@@ -165,49 +253,42 @@ fixfedora
 ```
 fixfedora/
 ├── fixfedora/
-│   ├── __init__.py          # Eksporty publiczne paczki
-│   ├── cli.py               # Punkt wejścia CLI (Click)
-│   ├── llm_shell.py         # Interaktywny shell LLM (timeout 1h)
+│   ├── __init__.py
+│   ├── cli.py                  # Komendy CLI (Click)
+│   ├── config.py               # Zarządzanie konfiguracją (.env)
+│   ├── agent/
+│   │   ├── hitl.py             # Human-in-the-Loop
+│   │   └── autonomous.py       # Tryb autonomiczny z JSON protokołem
+│   ├── diagnostics/
+│   │   └── system_checks.py    # Moduły: system, audio, thumbnails, hardware
+│   ├── providers/
+│   │   └── llm.py              # Multi-provider LLM (Gemini/OpenAI/xAI/Ollama)
 │   └── utils/
-│       ├── __init__.py
-│       ├── anonymizer.py    # Anonimizacja wrażliwych danych
-│       └── system_checks.py # Zbieranie metryk Fedora
-├── setup.py                 # Konfiguracja paczki PyPI
-├── requirements.txt         # Zależności Python
-├── fixfedora.conf.example   # Przykładowy plik konfiguracyjny
-└── README.md
+│       ├── anonymizer.py       # Anonimizacja z raportem
+│       └── web_search.py       # Bugzilla/AskFedora/ArchWiki/GitHub/DDG
+├── tests/
+│   ├── conftest.py             # Fixtures + mock diagnostics
+│   ├── e2e/
+│   │   ├── test_audio_broken.py
+│   │   └── test_thumbnails_broken.py
+│   └── unit/
+│       └── test_core.py
+├── docker/
+│   ├── base/Dockerfile
+│   ├── broken-audio/Dockerfile
+│   ├── broken-thumbnails/Dockerfile
+│   ├── broken-full/Dockerfile
+│   └── docker-compose.yml
+├── .env.example
+├── pytest.ini
+└── setup.py
 ```
-
----
-
-## Zależności
-
-| Biblioteka | Wersja | Zastosowanie |
-|:--|:--|:--|
-| `openai` | ≥1.35.0 | Klient API LLM (OpenAI, xAI, Ollama) |
-| `prompt_toolkit` | ≥3.0.43 | Interaktywny shell z historią i kolorami |
-| `psutil` | ≥5.9.0 | Metryki CPU, RAM, dyski, sieć, procesy |
-| `pyyaml` | ≥6.0 | Parsowanie konfiguracji YAML |
-| `click` | ≥8.1.0 | Profesjonalne CLI z helpem i opcjami |
-| `tabulate` | ≥0.9.0 | Formatowanie tabel w terminalu |
-
----
-
-## Komendy wewnątrz sesji
-
-| Wpisz | Akcja |
-|:--|:--|
-| `1`, `2`, `3`... | Napraw problem o danym numerze |
-| `all` | Napraw wszystkie wykryte problemy |
-| `skip` | Pomiń aktualny krok |
-| `!<komenda>` | Wykonaj komendę systemową (z potwierdzeniem) |
-| `q` / `quit` | Zakończ sesję |
 
 ---
 
 ## Licencja
 
-MIT License – używaj swobodnie, modyfikuj, dystrybuuj.
+MIT License
 
 ## License
 

@@ -1,10 +1,25 @@
-# fixfedora – zależności Python
-# Zainstaluj systemowe przez: sudo dnf install python3-psutil python3-pyyaml python3-requests
-# Zainstaluj resztę przez: pip install -r requirements.txt
+# ──────────────────────────────────────────────────────────
+#  fixfedora – zależności runtime
+#  Instalacja: pip install -r requirements.txt
+#
+#  Systemowe alternatywy (Fedora):
+#    sudo dnf install python3-psutil python3-pyyaml
+# ──────────────────────────────────────────────────────────
 
-openai>=1.35.0          # Klient OpenAI API (chat completions, kompatybilny z xAI, Ollama)
-prompt_toolkit>=3.0.43  # Interaktywny CLI shell z historią, kolorami i uzupełnianiem
-psutil>=5.9.0           # Metryki CPU, RAM, dysków, sieci, procesów
-pyyaml>=6.0             # Parsowanie plików konfiguracyjnych YAML
-click>=8.1.0            # Profesjonalny parser argumentów CLI
-tabulate>=0.9.0         # Formatowanie danych w tabelach ASCII
+# LLM – OpenAI-compatible client (Gemini / OpenAI / xAI / Ollama)
+openai>=1.35.0
+
+# Interaktywny shell z historią, kolorami, uzupełnianiem TAB
+prompt_toolkit>=3.0.43
+
+# Metryki systemowe: CPU, RAM, dyski, sieć, procesy
+psutil>=5.9.0
+
+# Parsowanie konfiguracji YAML
+pyyaml>=6.0
+
+# CLI – komendy z helpem, opcjami, podgrupami
+click>=8.1.0
+
+# Ładowanie pliku .env do zmiennych środowiskowych
+python-dotenv>=1.0.0

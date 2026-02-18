@@ -1,0 +1,124 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════
+#  fixfedora – środowiska testowe (Docker)
+#  Użycie:
+#    docker compose build
+#    docker compose run broken-audio      # testuj audio
+#    docker compose run broken-thumbnails # testuj thumbnails
+#    docker compose run broken-full       # pełny test
+#    docker compose run e2e-tests         # uruchom testy e2e
+# ═══════════════════════════════════════════════════════════
+
+x-common: &common
+  build:
+    context: ..
+  volumes:
+    - ..:/app:ro
+    - /tmp/fixfedora-test-reports:/reports
+  env_file:
+    - ../.env
+  environment:
+    - FIXFEDORA_TEST_MODE=1
+    - REPORTS_DIR=/reports
+  networks:
+    - fixfedora-test
+
+services:
+
+  # ── Obraz bazowy (nie uruchamiany bezpośrednio) ────────
+  base:
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile
+    image: fixfedora-base:latest
+    profiles: ["build-only"]
+    command: echo "base image built"
+
+  # ── Uszkodzony dźwięk ──────────────────────────────────
+  broken-audio:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/broken-audio/Dockerfile
+    image: fixfedora-broken-audio:latest
+    container_name: fixfedora-broken-audio
+    environment:
+      - SCENARIO=broken-audio
+      - AUDIO_BROKEN=1
+      - FIXFEDORA_TEST_MODE=1
+    command: >
+      sh -c "
+        echo '=== Scenariusz: broken-audio ===' &&
+        verify-scenario.sh &&
+        python3 -m fixfedora.diagnostics.system_checks
+      "
+
+  # ── Uszkodzone thumbnails ──────────────────────────────
+  broken-thumbnails:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/broken-thumbnails/Dockerfile
+    image: fixfedora-broken-thumbnails:latest
+    container_name: fixfedora-broken-thumbnails
+    environment:
+      - SCENARIO=broken-thumbnails
+      - THUMBNAILS_BROKEN=1
+      - FIXFEDORA_TEST_MODE=1
+
+  # ── Pełne uszkodzenie ─────────────────────────────────
+  broken-full:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/broken-full/Dockerfile
+    image: fixfedora-broken-full:latest
+    container_name: fixfedora-broken-full
+    environment:
+      - SCENARIO=broken-full
+      - AUDIO_BROKEN=1
+      - THUMBNAILS_BROKEN=1
+      - SERVICES_FAILED=1
+      - DNF_UPDATES_PENDING=4
+      - FIXFEDORA_TEST_MODE=1
+
+  # ── Runner testów e2e ─────────────────────────────────
+  e2e-tests:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile
+    container_name: fixfedora-e2e
+    environment:
+      - FIXFEDORA_TEST_MODE=1
+      - PYTEST_ADDOPTS="-v --tb=short"
+    command: >
+      sh -c "
+        pip install pytest pytest-cov pytest-mock --quiet &&
+        python -m pytest tests/e2e/ -v --tb=short
+          --cov=fixfedora --cov-report=term-missing
+          --cov-report=html:/reports/coverage
+      "
+    depends_on:
+      - base
+
+  # ── Unit testy (bez Dockera środowisk) ────────────────
+  unit-tests:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile
+    container_name: fixfedora-unit
+    command: >
+      sh -c "
+        pip install pytest pytest-mock --quiet &&
+        python -m pytest tests/unit/ -v --tb=short
+      "
+
+networks:
+  fixfedora-test:
+    driver: bridge
+
+volumes:
+  test-reports:

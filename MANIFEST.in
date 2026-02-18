@@ -1,0 +1,12 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include requirements.txt
+include requirements-dev.txt
+include .env.example
+include pytest.ini
+recursive-include fixfedora *.py
+recursive-include tests *.py
+recursive-include docker *
+prune docker/__pycache__
+prune **/__pycache__

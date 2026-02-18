@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fixfedora"
+version = "2.0.1"
+description = "AI-powered Fedora Linux diagnostics – audio, thumbnails, hardware (Lenovo Yoga)"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    { name = "fixfedora contributors" },
+    "Tom Sapletta <tom@sapletta.com>",
+]
+keywords = ["fedora", "linux", "diagnostics", "ai", "llm", "audio", "sof-firmware"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: System :: Systems Administration",
+    "Topic :: System :: Monitoring",
+    "Environment :: Console",
+]
+dependencies = [
+    "openai>=1.35.0",
+    "prompt_toolkit>=3.0.43",
+    "psutil>=5.9.0",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.scripts]
+fixfedora = "fixfedora.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/fixfedora"
+"Bug Tracker" = "https://github.com/yourusername/fixfedora/issues"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "docker*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["fixfedora"]
+omit = ["tests/*", "docker/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

@@ -1,194 +1,504 @@
 """
-Główny punkt wejścia CLI dla fixfedora.
-Użycie: fixfedora --token sk-...
+fixfedora CLI – wielopoziomowe komendy
+  fixfedora scan          – diagnostyka systemu
+  fixfedora fix           – diagnoza + sesja naprawcza
+  fixfedora token         – zarządzanie tokenem API
+  fixfedora config        – konfiguracja i ustawienia
+  fixfedora providers     – lista dostępnych providerów LLM
+  fixfedora test-llm      – test połączenia z LLM
 """
+
+from __future__ import annotations
 
 import json
 import os
 import sys
 from pathlib import Path
 
-try:
-    import click
-except ImportError:
-    print("[BŁĄD] Zainstaluj: pip install click")
-    sys.exit(1)
+import click
 
-from .system_checks import get_full_diagnostics
-from .anonymizer import anonymize
-from .llm_shell import run_llm_shell
-
-CONFIG_FILE = Path.home() / ".fixfedora.conf"
+from .config import FixFedoraConfig, get_providers_list, ENV_SEARCH_PATHS, PROVIDER_DEFAULTS
+from .diagnostics import get_full_diagnostics, DIAGNOSTIC_MODULES
+from .utils.anonymizer import anonymize, display_anonymized_preview
+from .agent.hitl import run_hitl_session
+from .agent.autonomous import run_autonomous_session
 
 BANNER = r"""
   __  _      ___        __       _
  / _|(_)_ __/ __| ___  / _| ___ | |_  ___  _ _ __ _
 |  _|| | \ \ (__/ -_) |  _|/ -_)|  _|/ _ \| '_/ _` |
 |_|  |_|_/_/\_,_\___| |_|  \___| \__|\/\__/|_| \__,_|
-
-  Diagnostyka i naprawa Fedora z AI  •  v1.0.0
+  Fedora AI Diagnostics  •  v2.0.0
 """
 
-
-def load_token_from_config() -> str | None:
-    """Wczytuje token API z pliku konfiguracyjnego ~/.fixfedora.conf"""
-    if not CONFIG_FILE.exists():
-        return None
-    try:
-        for line in CONFIG_FILE.read_text().splitlines():
-            line = line.strip()
-            if line.startswith('OPENAI_API_KEY=') or line.startswith('TOKEN='):
-                return line.split('=', 1)[1].strip()
-    except Exception:
-        pass
-    return None
+COMMON_OPTIONS = [
+    click.option("--provider", "-p", default=None,
+                 help="Provider LLM: gemini|openai|xai|openrouter|ollama"),
+    click.option("--token", "-t", default=None, envvar="API_KEY",
+                 help="Klucz API (override .env)"),
+    click.option("--model", "-m", default=None,
+                 help="Nazwa modelu LLM"),
+    click.option("--no-banner", is_flag=True, default=False),
+]
 
 
-@click.command()
-@click.option(
-    '--token', '-t',
-    default=None,
-    envvar='OPENAI_API_KEY',
-    help='Klucz API OpenAI (lub kompatybilnego LLM). Alternatywnie: ~/.fixfedora.conf lub env OPENAI_API_KEY'
-)
-@click.option(
-    '--model', '-m',
-    default='gpt-4o-mini',
-    show_default=True,
-    help='Model LLM do użycia (np. gpt-4o-mini, gpt-4o, gpt-4-turbo)'
-)
-@click.option(
-    '--timeout', '-T',
-    default=3600,
-    show_default=True,
-    help='Maksymalny czas sesji w sekundach (domyślnie 3600 = 1h)'
-)
-@click.option(
-    '--diagnose-only', '-d',
-    is_flag=True,
-    default=False,
-    help='Tylko zbierz diagnostykę i zapisz do pliku, bez uruchamiania LLM'
-)
-@click.option(
-    '--output', '-o',
-    default=None,
-    help='Plik wyjściowy dla danych diagnostycznych (JSON). Używane z --diagnose-only'
-)
-@click.option(
-    '--base-url', '-u',
-    default=None,
-    help='Alternatywny URL API (np. https://api.x.ai/v1 dla xAI Grok)'
-)
-@click.option(
-    '--verbose', '-v',
-    is_flag=True,
-    default=False,
-    help='Szczegółowy output debugowania'
-)
-@click.option(
-    '--no-banner',
-    is_flag=True,
-    default=False,
-    help='Ukryj banner startowy'
-)
-def main(token, model, timeout, diagnose_only, output, base_url, verbose, no_banner):
+def add_common_options(fn):
+    for opt in reversed(COMMON_OPTIONS):
+        fn = opt(fn)
+    return fn
+
+
+# ══════════════════════════════════════════════════════════
+#  GŁÓWNA GRUPA
+# ══════════════════════════════════════════════════════════
+
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx):
     """
-    fixfedora – Diagnostyka i naprawa systemu Fedora z pomocą AI.
-    
-    Zbiera metryki systemowe, anonimizuje wrażliwe dane i uruchamia
-    interaktywny shell LLM do analizy i naprawy problemów.
-    
-    Przykłady użycia:
-    
+    fixfedora – AI-powered diagnostyka i naprawa Fedora Linux.
+
     \b
-    # Podstawowe – pełna diagnostyka z LLM
-    fixfedora --token sk-XXXXXXXXXXXXXXXXXXXX
-    
+    Szybki start:
+      fixfedora token set AIzaSy...   # zapisz token Gemini
+      fixfedora fix                   # diagnostyka + naprawa
+      fixfedora scan --audio          # tylko skan audio
+
     \b
-    # Tylko diagnostyka, zapis do pliku
-    fixfedora --token sk-... --diagnose-only --output raport.json
-    
+    Więcej:
+      fixfedora --help
+      fixfedora fix --help
+    """
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+# ══════════════════════════════════════════════════════════
+#  fixfedora scan
+# ══════════════════════════════════════════════════════════
+
+@cli.command()
+@click.option("--audio", "modules", flag_value="audio", help="Tylko diagnostyka dźwięku")
+@click.option("--thumbnails", "modules", flag_value="thumbnails", help="Tylko podglądy plików")
+@click.option("--hardware", "modules", flag_value="hardware", help="Tylko sprzęt")
+@click.option("--system", "modules", flag_value="system", help="Tylko system")
+@click.option("--all", "modules", flag_value="all", default=True, help="Wszystkie moduły (domyślnie)")
+@click.option("--output", "-o", default=None, help="Zapisz raport do pliku JSON")
+@click.option("--show-raw", is_flag=True, default=False, help="Pokaż surowe (zanonimizowane) dane")
+@click.option("--no-banner", is_flag=True, default=False)
+def scan(modules, output, show_raw, no_banner):
+    """Przeprowadza diagnostykę systemu Fedora bez uruchamiania LLM."""
+    if not no_banner:
+        click.echo(click.style(BANNER, fg="cyan"))
+
+    selected = None if modules == "all" else [modules]
+
+    click.echo(click.style("\n🔍 Zbieranie diagnostyki...", fg="yellow"))
+
+    module_count = [0]
+    def progress(name, desc):
+        module_count[0] += 1
+        click.echo(f"  [{module_count[0]}] {desc}...")
+
+    data = get_full_diagnostics(selected, progress_callback=progress)
+
+    anon_str, report = anonymize(str(data))
+    click.echo(click.style("\n✅ Diagnostyka zakończona.", fg="green"))
+    click.echo(f"\n🔒 Anonimizacja:\n{report.summary()}")
+
+    if show_raw:
+        display_anonymized_preview(anon_str, report)
+
+    if output:
+        try:
+            Path(output).write_text(
+                json.dumps({"anonymized": anon_str, "raw": data}, ensure_ascii=False, indent=2, default=str),
+                encoding="utf-8"
+            )
+            click.echo(click.style(f"\n💾 Zapisano: {output}", fg="green"))
+        except Exception as e:
+            click.echo(click.style(f"⚠️  Błąd zapisu: {e}", fg="yellow"))
+
+    # Krótkie podsumowanie problemów
+    _print_quick_issues(data)
+
+
+def _print_quick_issues(data: dict):
+    """Wyświetla szybki przegląd problemów z zebranych danych."""
+    click.echo(click.style("\n📋 Szybki przegląd problemów:", fg="cyan"))
+    issues = []
+
+    # Sprawdź audio
+    audio = data.get("audio", {})
+    if "brak" in str(audio.get("alsa_cards", "")).lower() or not audio.get("alsa_cards","").strip() or audio.get("alsa_cards","") == "(brak outputu)":
+        issues.append("🔴 Dźwięk: brak kart ALSA – prawdopodobnie brak sterownika SOF")
+    if "failed" in str(audio.get("pipewire_status", "")).lower():
+        issues.append("🔴 PipeWire: usługa failed")
+    if "failed" in str(audio.get("wireplumber_status", "")).lower():
+        issues.append("🟡 WirePlumber: usługa failed")
+
+    # Sprawdź thumbnails
+    thumb = data.get("thumbnails", {})
+    thumb_count = str(thumb.get("thumbnail_cache_count", "0")).strip()
+    if thumb_count == "0":
+        issues.append("🟡 Thumbnails: pusty cache – brak podglądów")
+    if "nie zainstalowany" in str(thumb.get("ffmpegthumbnailer", "")):
+        issues.append("🟡 ffmpegthumbnailer: nie zainstalowany")
+    if "nie znaleziony" in str(thumb.get("totem_thumb", "")):
+        issues.append("🟡 totem-video-thumbnailer: nie znaleziony")
+
+    # Sprawdź system
+    sys_data = data.get("system", {})
+    failed = str(sys_data.get("systemctl_failed", "")).strip()
+    if failed and failed != "(brak outputu)" and "0 loaded" not in failed:
+        issues.append(f"🔴 systemctl: usługi failed:\n    {failed[:200]}")
+
+    if not issues:
+        click.echo("  ✅ Brak oczywistych problemów w zebranych danych.")
+    else:
+        for issue in issues:
+            click.echo(f"  {issue}")
+        click.echo(f"\n  Uruchom 'fixfedora fix' aby naprawić z pomocą AI.")
+
+
+# ══════════════════════════════════════════════════════════
+#  fixfedora fix
+# ══════════════════════════════════════════════════════════
+
+@cli.command()
+@add_common_options
+@click.option("--mode", type=click.Choice(["hitl", "autonomous"]), default=None,
+              help="Tryb agenta: hitl (domyślny) lub autonomous")
+@click.option("--timeout", "-T", default=None, type=int,
+              help="Timeout sesji w sekundach (domyślnie 3600)")
+@click.option("--modules", "-M", default=None,
+              help="Moduły diagnostyki: audio,thumbnails,hardware,system (domyślnie: all)")
+@click.option("--no-show-data", is_flag=True, default=False,
+              help="Nie pokazuj zanonimizowanych danych przed wysłaniem do LLM")
+@click.option("--output", "-o", default=None, help="Zapisz raport diagnostyczny do JSON")
+@click.option("--max-fixes", default=10, show_default=True,
+              help="Maksymalna liczba automatycznych napraw (tryb autonomous)")
+def fix(provider, token, model, no_banner, mode, timeout, modules, no_show_data, output, max_fixes):
+    """
+    Przeprowadza pełną diagnostykę i uruchamia sesję naprawczą z LLM.
+
     \b
-    # Z alternatywnym API (xAI Grok)
-    fixfedora --token xai-... --base-url https://api.x.ai/v1 --model grok-beta
-    
+    Tryby:
+      hitl        – Human-in-the-Loop (pyta o każdą akcję) [domyślny]
+      autonomous  – Agent sam wykonuje komendy (UWAGA: wymaga potwierdzenia)
+
     \b
-    # Sesja z limitem 30 minut
-    fixfedora --token sk-... --timeout 1800
-    
-    \b
-    # Token z pliku konfiguracyjnego ~/.fixfedora.conf
-    echo "OPENAI_API_KEY=sk-..." > ~/.fixfedora.conf
-    chmod 600 ~/.fixfedora.conf
-    fixfedora
+    Przykłady:
+      fixfedora fix                              # domyślnie hitl + Gemini z .env
+      fixfedora fix --mode autonomous            # tryb autonomiczny
+      fixfedora fix --modules audio,thumbnails   # tylko audio i thumbnails
+      fixfedora fix --provider openai --token sk-...
     """
     if not no_banner:
-        click.echo(click.style(BANNER, fg='cyan'))
+        click.echo(click.style(BANNER, fg="cyan"))
 
-    # Resolve token
-    resolved_token = token or load_token_from_config() or os.environ.get('OPENAI_API_KEY')
-    
-    if not resolved_token and not diagnose_only:
-        click.echo(click.style("❌ Brak tokena API!", fg='red'))
-        click.echo("Podaj go przez:")
-        click.echo("  --token sk-...                    (argument CLI)")
-        click.echo("  OPENAI_API_KEY=sk-... fixfedora   (zmienna środowiskowa)")
-        click.echo("  echo 'OPENAI_API_KEY=sk-...' > ~/.fixfedora.conf  (plik konfiguracyjny)")
+    # Załaduj konfigurację
+    cfg = FixFedoraConfig.load(
+        provider=provider,
+        api_key=token,
+        model=model,
+        agent_mode=mode,
+        session_timeout=timeout,
+        show_anonymized_data=not no_show_data,
+    )
+
+    # Override mode jeśli podany
+    if mode:
+        cfg.agent_mode = mode
+
+    errors = cfg.validate()
+    if errors:
+        for err in errors:
+            click.echo(click.style(f"❌ {err}", fg="red"))
+        click.echo(f"\nKonfiguracja:\n{cfg.summary()}")
         sys.exit(1)
 
-    # Krok 1: Diagnostyka
-    click.echo(click.style("🔍 Zbieranie diagnostyki systemu Fedora...", fg='yellow'))
-    try:
-        diagnostics = get_full_diagnostics()
-    except Exception as e:
-        click.echo(click.style(f"❌ Błąd podczas diagnostyki: {e}", fg='red'))
-        if verbose:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+    click.echo(click.style("\n⚙️  Konfiguracja:", fg="cyan"))
+    click.echo(cfg.summary())
 
-    click.echo(click.style("✅ Diagnostyka zebrana i zanonimizowana.", fg='green'))
+    # Diagnostyka
+    selected_modules = modules.split(",") if modules else None
+    click.echo(click.style("\n🔍 Zbieranie diagnostyki...", fg="yellow"))
 
-    # Krok 2: Opcjonalny zapis do pliku
-    if output or diagnose_only:
-        save_path = output or 'fixfedora-report.json'
+    def progress(name, desc):
+        click.echo(f"  → {desc}...")
+
+    data = get_full_diagnostics(selected_modules, progress_callback=progress)
+
+    if output:
+        anon_str, _ = anonymize(str(data))
         try:
-            anon_data = anonymize(str(diagnostics))
-            with open(save_path, 'w', encoding='utf-8') as f:
-                # Próba zapisu jako JSON (dane są stringiem po anonimizacji)
-                json.dump({'anonymized_report': anon_data, 'raw': diagnostics}, f, 
-                         ensure_ascii=False, indent=2, default=str)
-            click.echo(click.style(f"💾 Raport zapisany: {save_path}", fg='green'))
+            Path(output).write_text(
+                json.dumps({"anonymized": anon_str, "raw": data}, ensure_ascii=False, indent=2, default=str),
+                encoding="utf-8"
+            )
+            click.echo(click.style(f"💾 Raport: {output}", fg="green"))
         except Exception as e:
-            click.echo(click.style(f"⚠️ Błąd zapisu: {e}", fg='yellow'))
+            click.echo(f"⚠️  Błąd zapisu: {e}")
 
-        if diagnose_only:
-            click.echo("ℹ️  Tryb --diagnose-only: pomijam uruchomienie LLM shell.")
-            sys.exit(0)
+    click.echo(click.style("✅ Diagnostyka gotowa.\n", fg="green"))
 
-    # Krok 3: Uruchom LLM shell
-    click.echo(click.style(f"\n⏰ Uruchamianie sesji LLM (model: {model}, timeout: {timeout}s)...", fg='cyan'))
-    click.echo(click.style("  Tip: wpisz '!<komenda>' aby wykonać komendę systemową (np. !dnf check-update)", fg='blue'))
-    click.echo(click.style("  Tip: wpisz 'q' aby zakończyć sesję\n", fg='blue'))
-
-    try:
-        run_llm_shell(
-            diagnostics_data=diagnostics,
-            token=resolved_token,
-            model=model,
-            timeout=timeout,
-            verbose=verbose,
-            base_url=base_url,
+    # Uruchom odpowiedni tryb agenta
+    if cfg.agent_mode == "autonomous":
+        run_autonomous_session(
+            diagnostics=data,
+            config=cfg,
+            show_data=cfg.show_anonymized_data,
+            max_fixes=max_fixes,
         )
-    except KeyboardInterrupt:
-        click.echo(click.style("\n\n⚠️  Sesja przerwana (Ctrl+C).", fg='yellow'))
+    else:
+        run_hitl_session(
+            diagnostics=data,
+            config=cfg,
+            show_data=cfg.show_anonymized_data,
+        )
+
+
+# ══════════════════════════════════════════════════════════
+#  fixfedora token
+# ══════════════════════════════════════════════════════════
+
+@cli.group()
+def token():
+    """Zarządzanie tokenami API LLM."""
+    pass
+
+
+@token.command("set")
+@click.argument("key")
+@click.option("--provider", "-p", default=None, help="Provider (gemini/openai/xai/...)")
+@click.option("--env-file", default=None, help="Ścieżka do pliku .env")
+def token_set(key, provider, env_file):
+    """
+    Zapisuje token API do pliku .env.
+
+    \b
+    Przykłady:
+      fixfedora token set AIzaSy...          # Gemini (domyślny)
+      fixfedora token set sk-... --provider openai
+      fixfedora token set xai-... --provider xai
+    """
+    target = Path(env_file) if env_file else Path.cwd() / ".env"
+
+    # Wykryj provider po prefiksie klucza
+    if not provider:
+        if key.startswith("AIzaSy") or key.startswith("AI"):
+            provider = "gemini"
+        elif key.startswith("sk-or-"):
+            provider = "openrouter"
+        elif key.startswith("sk-"):
+            provider = "openai"
+        elif key.startswith("xai-"):
+            provider = "xai"
+        else:
+            provider = "gemini"  # domyślny
+
+    pdef = PROVIDER_DEFAULTS.get(provider, {})
+    key_env = pdef.get("key_env", "API_KEY")
+
+    # Wczytaj istniejący .env lub stwórz nowy
+    lines = []
+    if target.exists():
+        lines = target.read_text(encoding="utf-8").splitlines()
+
+    # Znajdź i zastąp lub dodaj
+    key_line = f"{key_env}={key}"
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.startswith(f"{key_env}=") or line.startswith(f"# {key_env}="):
+            lines[i] = key_line
+            replaced = True
+            break
+
+    if not replaced:
+        # Dodaj też LLM_PROVIDER jeśli nie ma
+        if not any(l.startswith("LLM_PROVIDER=") for l in lines):
+            lines.insert(0, f"LLM_PROVIDER={provider}")
+        lines.append(key_line)
+
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    target.chmod(0o600)
+
+    masked = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+    click.echo(click.style(f"✅ Token zapisany: {key_env}={masked}", fg="green"))
+    click.echo(f"   Provider: {provider}")
+    click.echo(f"   Plik: {target}")
+
+
+@token.command("show")
+def token_show():
+    """Pokazuje aktualnie skonfigurowany token (zamaskowany)."""
+    cfg = FixFedoraConfig.load()
+    if cfg.api_key:
+        key = cfg.api_key
+        masked = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "***"
+        click.echo(f"  Provider : {cfg.provider}")
+        click.echo(f"  Token    : {masked}")
+        click.echo(f"  Env plik : {cfg.env_file_loaded or 'brak'}")
+    else:
+        click.echo(click.style("  ❌ Brak tokena. Użyj: fixfedora token set <KLUCZ>", fg="red"))
+
+
+@token.command("clear")
+@click.option("--env-file", default=None)
+def token_clear(env_file):
+    """Usuwa token z pliku .env."""
+    target = Path(env_file) if env_file else Path.cwd() / ".env"
+    if not target.exists():
+        click.echo("  Brak pliku .env.")
+        return
+
+    lines = target.read_text(encoding="utf-8").splitlines()
+    key_patterns = [f"{p.get('key_env','API_KEY')}=" for p in PROVIDER_DEFAULTS.values()]
+    new_lines = [l for l in lines if not any(l.startswith(p) for p in key_patterns)]
+    target.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    click.echo(click.style("✅ Token usunięty.", fg="green"))
+
+
+# ══════════════════════════════════════════════════════════
+#  fixfedora config
+# ══════════════════════════════════════════════════════════
+
+@cli.group()
+def config():
+    """Zarządzanie konfiguracją fixfedora."""
+    pass
+
+
+@config.command("show")
+def config_show():
+    """Wyświetla aktualną konfigurację."""
+    cfg = FixFedoraConfig.load()
+    click.echo(click.style("\n⚙️  Aktualna konfiguracja:", fg="cyan"))
+    click.echo(cfg.summary())
+    errors = cfg.validate()
+    if errors:
+        click.echo(click.style("\n⚠️  Błędy konfiguracji:", fg="red"))
+        for e in errors:
+            click.echo(f"  • {e}")
+
+
+@config.command("init")
+@click.option("--force", is_flag=True, default=False, help="Nadpisz istniejący .env")
+def config_init(force):
+    """Tworzy plik .env na podstawie szablonu .env.example."""
+    target = Path.cwd() / ".env"
+    example = Path(__file__).parent.parent / ".env.example"
+
+    if target.exists() and not force:
+        click.echo(f"  Plik {target} już istnieje. Użyj --force aby nadpisać.")
+        return
+
+    if example.exists():
+        import shutil
+        shutil.copy(example, target)
+    else:
+        # Minimalny template
+        target.write_text(
+            "LLM_PROVIDER=gemini\n"
+            "GEMINI_API_KEY=\n"
+            "AGENT_MODE=hitl\n"
+            "SESSION_TIMEOUT=3600\n"
+            "SHOW_ANONYMIZED_DATA=true\n"
+            "ENABLE_WEB_SEARCH=true\n",
+            encoding="utf-8"
+        )
+    target.chmod(0o600)
+    click.echo(click.style(f"✅ Utworzono {target}", fg="green"))
+    click.echo(f"   Edytuj go: nano {target}")
+    click.echo(f"   Następnie: fixfedora token set TWOJ_KLUCZ")
+
+
+@config.command("set")
+@click.argument("key")
+@click.argument("value")
+def config_set(key, value):
+    """
+    Ustawia wartość w pliku .env.
+
+    \b
+    Przykłady:
+      fixfedora config set AGENT_MODE autonomous
+      fixfedora config set SESSION_TIMEOUT 1800
+      fixfedora config set LLM_PROVIDER openai
+    """
+    target = Path.cwd() / ".env"
+    lines = target.read_text(encoding="utf-8").splitlines() if target.exists() else []
+
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.startswith(f"{key}="):
+            lines[i] = f"{key}={value}"
+            replaced = True
+            break
+    if not replaced:
+        lines.append(f"{key}={value}")
+
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    click.echo(click.style(f"✅ {key}={value}", fg="green"))
+
+
+# ══════════════════════════════════════════════════════════
+#  fixfedora providers
+# ══════════════════════════════════════════════════════════
+
+@cli.command()
+def providers():
+    """Lista dostępnych providerów LLM."""
+    click.echo(click.style("\n🤖 Dostępni providerzy LLM:", fg="cyan"))
+    click.echo(get_providers_list())
+    click.echo("\nAby ustawić provider:")
+    click.echo("  fixfedora config set LLM_PROVIDER gemini")
+    click.echo("  fixfedora token set AIzaSy... --provider gemini")
+
+
+# ══════════════════════════════════════════════════════════
+#  fixfedora test-llm
+# ══════════════════════════════════════════════════════════
+
+@cli.command("test-llm")
+@add_common_options
+def test_llm(provider, token, model, no_banner):
+    """Testuje połączenie z wybranym providerem LLM."""
+    if not no_banner:
+        click.echo(click.style(BANNER, fg="cyan"))
+
+    cfg = FixFedoraConfig.load(provider=provider, api_key=token, model=model)
+    errors = cfg.validate()
+    if errors:
+        for err in errors:
+            click.echo(click.style(f"❌ {err}", fg="red"))
+        sys.exit(1)
+
+    click.echo(f"\n  Testuję: {cfg.provider} / {cfg.model}")
+    click.echo(f"  URL: {cfg.base_url}")
+
+    from .providers.llm import LLMClient, LLMError
+    llm = LLMClient(cfg)
+    try:
+        resp = llm.chat(
+            [{"role": "user", "content": "Odpowiedz jednym zdaniem po polsku: co to jest Fedora Linux?"}],
+            max_tokens=100,
+        )
+        click.echo(click.style(f"\n  ✅ Połączenie działa!", fg="green"))
+        click.echo(f"  Odpowiedź: {resp[:200]}")
     except Exception as e:
-        click.echo(click.style(f"\n❌ Nieoczekiwany błąd: {e}", fg='red'))
-        if verbose:
-            import traceback
-            traceback.print_exc()
+        click.echo(click.style(f"\n  ❌ Błąd: {e}", fg="red"))
         sys.exit(1)
 
 
-if __name__ == '__main__':
+# ══════════════════════════════════════════════════════════
+#  ENTRY POINT
+# ══════════════════════════════════════════════════════════
+
+def main():
+    cli()
+
+
+if __name__ == "__main__":
     main()
