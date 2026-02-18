@@ -1,3 +1,24 @@
+## [2.1.2] - 2026-02-18
+
+### Summary
+
+refactor(goal): deep code analysis engine with 6 supporting modules
+
+### Other
+
+- update fixfedora/__init__.py
+- update fixfedora/agent/__init__.py
+- update fixfedora/agent/autonomous.py
+- update fixfedora/agent/hitl.py
+- update fixfedora/anonymizer.py
+- update fixfedora/cli.py
+- update fixfedora/config.py
+- update fixfedora/diagnostics/__init__.py
+- update fixfedora/diagnostics/system_checks.py
+- update fixfedora/llm_shell.py
+- ... and 10 more
+
+
 ## [2.1.1] - 2026-02-18
 
 ### Summary
