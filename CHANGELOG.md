@@ -1,3 +1,18 @@
+## [2.0.2] - 2026-02-18
+
+### Summary
+
+fix(config): deep code analysis engine with 2 supporting modules
+
+### Build
+
+- update pyproject.toml
+
+### Other
+
+- update fixfedora/utils/anonymizer.py
+
+
 ## [2.0.1] - 2026-02-18
 
 ### Summary

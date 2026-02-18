@@ -135,25 +135,120 @@ def anonymize(data_str: str) -> tuple[str, AnonymizationReport]:
     return data_str, report
 
 
-def display_anonymized_preview(data_str: str, report: AnonymizationReport, max_lines: int = 60):
+def display_anonymized_preview(data_str: str, report: AnonymizationReport, max_lines: int = 80):
     """
     Wyświetla użytkownikowi zanonimizowane dane przed wysłaniem do LLM.
+    Formatuje jako czytelny markdown.
     """
     print("\n" + "═" * 65)
     print("  📋 DANE DIAGNOSTYCZNE (zanonimizowane) – wysyłane do LLM")
     print("═" * 65)
 
-    lines = data_str.splitlines()
+    # Próbuj sformatować jako czytelny markdown
+    formatted = _format_diagnostics_markdown(data_str)
+    
+    lines = formatted.splitlines()
     if len(lines) > max_lines:
-        shown = lines[:max_lines // 2] + ["  ... [skrócono] ..."] + lines[-(max_lines // 2):]
+        shown = lines[:max_lines // 2] + ["  ...", "  [skrócono - pełne dane wysyłane do LLM]", "  ..."] + lines[-(max_lines // 2):]
     else:
         shown = lines
 
+    # Wyświetl z limitowaną szerokością
+    max_width = 90
     for line in shown:
-        print(f"  {line}")
+        # Zawijaj długie linie
+        if len(line) > max_width:
+            # Dla długich linii (np. dict), skróć z "..."
+            print(f"  {line[:max_width-3]}...")
+        else:
+            print(f"  {line}")
 
     print("\n" + "─" * 65)
     print("  🔒 Anonimizacja – co zostało ukryte:")
     print(report.summary())
-    print(f"  Rozmiar: {report.original_length} → {report.anonymized_length} znaków")
+    print(f"  Rozmiar: {report.original_length:,} → {report.anonymized_length:,} znaków")
     print("─" * 65)
+
+
+def _format_diagnostics_markdown(data_str: str) -> str:
+    """Formatuje dane diagnostyczne jako czytelny markdown."""
+    import ast
+    
+    # Próbuj sparsować jako dict
+    try:
+        # Usuń 'zanonimizowane' znaczniki jeśli są
+        clean = data_str.replace('[HOSTNAME]', 'HOSTNAME').replace('[USER]', 'USER')
+        data = ast.literal_eval(clean)
+        if isinstance(data, dict):
+            return _dict_to_markdown(data)
+    except (SyntaxError, ValueError):
+        pass
+    
+    # Fallback: formatuj jako kod
+    return f"```\n{data_str}\n```"
+
+
+def _dict_to_markdown(data: dict, indent: int = 0) -> str:
+    """Rekurencyjnie konwertuje dict na markdown."""
+    lines = []
+    prefix = "  " * indent
+    
+    for key, value in data.items():
+        if isinstance(value, dict):
+            # Nagłówek sekcji
+            section_title = _format_key_title(key)
+            lines.append(f"\n{prefix}### {section_title}")
+            lines.append(_dict_to_markdown(value, indent + 1))
+        elif isinstance(value, list):
+            if len(value) > 0 and isinstance(value[0], dict):
+                # Lista dictów - skróć
+                lines.append(f"{prefix}- **{key}**: [{len(value)} elementów]")
+            elif len(value) > 10:
+                # Długa lista - pokaż pierwsze i ostatnie
+                lines.append(f"{prefix}- **{key}**:")
+                for item in value[:5]:
+                    lines.append(f"{prefix}  - {item}")
+                lines.append(f"{prefix}  ... ({len(value) - 10} więcej)")
+                for item in value[-5:]:
+                    lines.append(f"{prefix}  - {item}")
+            else:
+                lines.append(f"{prefix}- **{key}**: {value}")
+        elif isinstance(value, str) and len(value) > 200:
+            # Długi string - skróć
+            lines.append(f"{prefix}- **{key}**:")
+            lines.append(f"{prefix}  ```")
+            for line in value.split("\n")[:15]:
+                lines.append(f"{prefix}  {line[:80]}")
+            if value.count("\n") > 15:
+                lines.append(f"{prefix}  ... ({value.count(chr(10)) - 15} więcej linii)")
+            lines.append(f"{prefix}  ```")
+        elif isinstance(value, str) and "\n" in value:
+            # Wieloliniowy string jako blok kodu
+            lines.append(f"{prefix}- **{key}**:")
+            lines.append(f"{prefix}  ```")
+            for line in value.split("\n")[:10]:
+                lines.append(f"{prefix}  {line}")
+            if value.count("\n") > 10:
+                lines.append(f"{prefix}  ... ({value.count(chr(10)) - 10} więcej)")
+            lines.append(f"{prefix}  ```")
+        else:
+            # Prosta wartość
+            val_str = str(value)
+            if len(val_str) > 60:
+                val_str = val_str[:57] + "..."
+            lines.append(f"{prefix}- **{key}**: `{val_str}`")
+    
+    return "\n".join(lines)
+
+
+def _format_key_title(key: str) -> str:
+    """Formatuje klucz dict jako czytelny tytuł."""
+    titles = {
+        "system": "🖥️ System",
+        "audio": "🔊 Dźwięk",
+        "thumbnails": "🖼️ Podglądy plików",
+        "hardware": "🔧 Sprzęt",
+        "disks": "💾 Dyski",
+        "top_processes": "📊 Top procesy",
+    }
+    return titles.get(key, key.replace("_", " ").title())

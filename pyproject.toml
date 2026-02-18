@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fixfedora"
-version = "2.0.1"
+version = "2.0.2"
 description = "AI-powered Fedora Linux diagnostics – audio, thumbnails, hardware (Lenovo Yoga)"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
     { name = "fixfedora contributors" },
-    "Tom Sapletta <tom@sapletta.com>",
+    { name = "Tom Sapletta", email = "tom@sapletta.com" },
 ]
 keywords = ["fedora", "linux", "diagnostics", "ai", "llm", "audio", "sof-firmware"]
 classifiers = [
