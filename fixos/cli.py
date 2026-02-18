@@ -24,11 +24,12 @@ from .agent.hitl import run_hitl_session
 from .agent.autonomous import run_autonomous_session
 
 BANNER = r"""
-  __  _      ___        __       _
- / _|(_)_ __/ __| ___  / _| ___ | |_  ___  _ _ __ _
-|  _|| | \ \ (__/ -_) |  _|/ -_)|  _|/ _ \| '_/ _` |
-|_|  |_|_/_/\_,_\___| |_|  \___| \__|\/\__/|_| \__,_|
-  AI Diagnostics  •  v2.0.0
+  ___  _       ___  ____
+ / _(_)_  __  / _ \/ ___|
+| |_| \ \/ / | | | \___ \
+|  _| |>  <  | |_| |___) |
+|_| |_/_/\_\  \___/|____/
+  AI-powered OS Diagnostics  •  v2.0.0
 """
 
 COMMON_OPTIONS = [
@@ -70,7 +71,59 @@ def cli(ctx):
       fixos fix --help
     """
     if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
+        _print_welcome()
+
+
+def _print_welcome():
+    """Ekran powitalny fixos przy braku podkomendy."""
+    click.echo(click.style(BANNER, fg="cyan"))
+
+    cfg = FixOsConfig.load()
+    has_key = bool(cfg.api_key)
+    key_status = click.style("✅ skonfigurowany", fg="green") if has_key else click.style("❌ BRAK", fg="red")
+    provider_info = f"{cfg.provider} ({cfg.model})"
+
+    click.echo(click.style("═" * 60, fg="cyan"))
+    click.echo(click.style("  📋 DOSTĘPNE KOMENDY", fg="cyan", bold=True))
+    click.echo(click.style("═" * 60, fg="cyan"))
+    click.echo()
+
+    commands = [
+        ("fixos fix",         "🔧", "Diagnostyka + sesja naprawcza z AI (HITL)"),
+        ("fixos scan",        "🔍", "Diagnostyka systemu bez AI"),
+        ("fixos orchestrate", "🎼", "Zaawansowana orkiestracja napraw (graf problemów)"),
+        ("fixos llm",         "🤖", "Lista providerów LLM + linki do kluczy API"),
+        ("fixos token set",   "🔑", "Zapisz klucz API do .env"),
+        ("fixos token show",  "👁️ ", "Pokaż aktualny token (zamaskowany)"),
+        ("fixos config show", "⚙️ ", "Pokaż konfigurację"),
+        ("fixos config init", "📄", "Utwórz plik .env z szablonu"),
+        ("fixos providers",   "📡", "Lista providerów (skrócona)"),
+        ("fixos test-llm",    "🧪", "Test połączenia z LLM"),
+    ]
+
+    for cmd, icon, desc in commands:
+        cmd_styled = click.style(f"{cmd:<26}", fg="yellow")
+        click.echo(f"  {icon}  {cmd_styled} {desc}")
+
+    click.echo()
+    click.echo(click.style("─" * 60, fg="cyan"))
+    click.echo(click.style("  ⚙️  AKTUALNY STATUS", fg="cyan"))
+    click.echo(click.style("─" * 60, fg="cyan"))
+    click.echo(f"  Provider  : {provider_info}")
+    click.echo(f"  API Key   : {key_status}")
+    click.echo(f"  .env plik : {cfg.env_file_loaded or 'nie znaleziono'}")
+    click.echo()
+
+    if not has_key:
+        click.echo(click.style("  💡 Szybki start:", fg="yellow", bold=True))
+        click.echo(click.style("     fixos llm", fg="yellow") + "          # wybierz provider i pobierz klucz")
+        click.echo(click.style("     fixos token set <KLUCZ>", fg="yellow") + "  # zapisz klucz")
+        click.echo(click.style("     fixos fix", fg="yellow") + "          # uruchom diagnostykę")
+    else:
+        click.echo(click.style("  💡 Uruchom diagnostykę:", fg="yellow", bold=True))
+        click.echo(click.style("     fixos fix", fg="yellow") + "          # pełna diagnostyka + naprawa")
+        click.echo(click.style("     fixos scan", fg="yellow") + "         # tylko skan bez AI")
+    click.echo()
 
 
 # ══════════════════════════════════════════════════════════
@@ -291,10 +344,14 @@ def token_set(key, provider, env_file):
             provider = "gemini"
         elif key.startswith("sk-or-"):
             provider = "openrouter"
+        elif key.startswith("sk-ant-"):
+            provider = "anthropic"
         elif key.startswith("sk-"):
             provider = "openai"
         elif key.startswith("xai-"):
             provider = "xai"
+        elif key.startswith("gsk_"):
+            provider = "groq"
         else:
             provider = "gemini"  # domyślny
 
@@ -444,14 +501,96 @@ def config_set(key, value):
 
 
 # ══════════════════════════════════════════════════════════
+#  fixos llm
+# ══════════════════════════════════════════════════════════
+
+@cli.command("llm")
+@click.option("--free", is_flag=True, default=False, help="Pokaż tylko darmowe providery")
+def llm_providers(free):
+    """
+    Lista providerów LLM z linkami do generowania kluczy API.
+
+    \b
+    Po wybraniu providera:
+      1. Kliknij lub skopiuj URL z kolumny 'Klucz API'
+      2. Zaloguj się i wygeneruj klucz
+      3. Uruchom: fixos token set <TWÓJ_KLUCZ> --provider <PROVIDER>
+    """
+    providers_data = get_providers_list()
+    if free:
+        providers_data = [p for p in providers_data if p["free_tier"]]
+
+    cfg = FixOsConfig.load()
+    current = cfg.provider
+
+    click.echo(click.style("\n🤖 DOSTĘPNI PROVIDERZY LLM", fg="cyan", bold=True))
+    click.echo(click.style("═" * 72, fg="cyan"))
+
+    for i, p in enumerate(providers_data, 1):
+        is_current = p["name"] == current
+        free_badge = click.style(" FREE", fg="green", bold=True) if p["free_tier"] else click.style(" PAID", fg="yellow")
+        current_badge = click.style(" ◀ aktywny", fg="cyan", bold=True) if is_current else ""
+
+        name_styled = click.style(f"{p['name']:<12}", fg="cyan" if is_current else "white", bold=is_current)
+        click.echo(f"  {i:>2}. {name_styled}{free_badge}{current_badge}")
+        click.echo(f"       {p['description']}")
+        click.echo(f"       Model   : {p['model']}")
+        click.echo(f"       Env var : {p['key_env']}")
+        url_styled = click.style(p['key_url'], fg="blue", underline=True)
+        click.echo(f"       Klucz   : {url_styled}")
+        click.echo()
+
+    click.echo(click.style("─" * 72, fg="cyan"))
+    click.echo(click.style("  📋 JAK USTAWIĆ KLUCZ API:", fg="yellow", bold=True))
+    click.echo()
+    click.echo("  1. Skopiuj URL z kolumny 'Klucz API' i otwórz w przeglądarce")
+    click.echo("  2. Zaloguj się i wygeneruj nowy klucz API")
+    click.echo("  3. Uruchom jedną z poniższych komend:")
+    click.echo()
+    for p in providers_data:
+        if p["key_env"] == "(brak – lokalny)":
+            continue
+        example_key = _example_key(p["name"])
+        cmd = click.style(f"  fixos token set {example_key} --provider {p['name']}", fg="yellow")
+        click.echo(cmd)
+    click.echo()
+    click.echo(click.style("  💡 Tip: ", fg="cyan") + "fixos llm --free   # pokaż tylko darmowe providery")
+    click.echo()
+
+
+def _example_key(provider: str) -> str:
+    """Zwraca przykładowy format klucza dla danego providera."""
+    examples = {
+        "gemini":     "AIzaSy...",
+        "openai":     "sk-...",
+        "openrouter": "sk-or-v1-...",
+        "xai":        "xai-...",
+        "anthropic":  "sk-ant-...",
+        "mistral":    "<KLUCZ_MISTRAL>",
+        "groq":       "gsk_...",
+        "together":   "<KLUCZ_TOGETHER>",
+        "cohere":     "<KLUCZ_COHERE>",
+        "deepseek":   "<KLUCZ_DEEPSEEK>",
+        "cerebras":   "<KLUCZ_CEREBRAS>",
+        "ollama":     "(brak – lokalny)",
+    }
+    return examples.get(provider, "<KLUCZ>")
+
+
+# ══════════════════════════════════════════════════════════
 #  fixos providers
 # ══════════════════════════════════════════════════════════
 
 @cli.command()
 def providers():
-    """Lista dostępnych providerów LLM."""
+    """Lista dostępnych providerów LLM (skrócona). Użyj 'fixos llm' po więcej."""
+    providers_data = get_providers_list()
     click.echo(click.style("\n🤖 Dostępni providerzy LLM:", fg="cyan"))
-    click.echo(get_providers_list())
+    for p in providers_data:
+        free = click.style("FREE", fg="green") if p["free_tier"] else click.style("PAID", fg="yellow")
+        click.echo(f"  {p['name']:<12} [{free}]  {p['model']:<45} {p['key_env']}")
+    click.echo("\nSzczegóły + linki do kluczy API:")
+    click.echo("  fixos llm")
     click.echo("\nAby ustawić provider:")
     click.echo("  fixos config set LLM_PROVIDER gemini")
     click.echo("  fixos token set AIzaSy... --provider gemini")

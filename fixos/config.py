@@ -31,26 +31,97 @@ PROVIDER_DEFAULTS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "model": "gemini-2.5-flash-preview-04-17",
         "key_env": "GEMINI_API_KEY",
+        "key_url": "https://aistudio.google.com/app/apikey",
+        "free_tier": True,
+        "description": "Google Gemini – darmowy tier, bardzo dobry do diagnostyki",
     },
     "openai": {
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-4o-mini",
         "key_env": "OPENAI_API_KEY",
-    },
-    "xai": {
-        "base_url": "https://api.x.ai/v1",
-        "model": "grok-beta",
-        "key_env": "XAI_API_KEY",
+        "key_url": "https://platform.openai.com/api-keys",
+        "free_tier": False,
+        "description": "OpenAI GPT-4o-mini – płatny, niezawodny",
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
         "model": "openai/gpt-4o-mini",
         "key_env": "OPENROUTER_API_KEY",
+        "key_url": "https://openrouter.ai/settings/keys",
+        "free_tier": True,
+        "description": "OpenRouter – agregator 200+ modeli, darmowe modele dostępne",
+    },
+    "xai": {
+        "base_url": "https://api.x.ai/v1",
+        "model": "grok-beta",
+        "key_env": "XAI_API_KEY",
+        "key_url": "https://console.x.ai/",
+        "free_tier": False,
+        "description": "xAI Grok – model od Elona Muska",
+    },
+    "anthropic": {
+        "base_url": "https://api.anthropic.com/v1",
+        "model": "claude-3-haiku-20240307",
+        "key_env": "ANTHROPIC_API_KEY",
+        "key_url": "https://console.anthropic.com/settings/keys",
+        "free_tier": False,
+        "description": "Anthropic Claude – bardzo dobry do analizy logów",
+    },
+    "mistral": {
+        "base_url": "https://api.mistral.ai/v1",
+        "model": "mistral-small-latest",
+        "key_env": "MISTRAL_API_KEY",
+        "key_url": "https://console.mistral.ai/api-keys/",
+        "free_tier": True,
+        "description": "Mistral AI – europejski provider, darmowy tier",
+    },
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.1-8b-instant",
+        "key_env": "GROQ_API_KEY",
+        "key_url": "https://console.groq.com/keys",
+        "free_tier": True,
+        "description": "Groq – ultra-szybkie wnioskowanie, darmowy tier",
+    },
+    "together": {
+        "base_url": "https://api.together.xyz/v1",
+        "model": "meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
+        "key_env": "TOGETHER_API_KEY",
+        "key_url": "https://api.together.ai/settings/api-keys",
+        "free_tier": True,
+        "description": "Together AI – open-source modele, $1 kredyt startowy",
+    },
+    "cohere": {
+        "base_url": "https://api.cohere.com/v2",
+        "model": "command-r",
+        "key_env": "COHERE_API_KEY",
+        "key_url": "https://dashboard.cohere.com/api-keys",
+        "free_tier": True,
+        "description": "Cohere Command-R – darmowy trial, dobry do RAG",
+    },
+    "deepseek": {
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "key_env": "DEEPSEEK_API_KEY",
+        "key_url": "https://platform.deepseek.com/api_keys",
+        "free_tier": False,
+        "description": "DeepSeek – tani chiński provider, bardzo dobry stosunek ceny",
+    },
+    "cerebras": {
+        "base_url": "https://api.cerebras.ai/v1",
+        "model": "llama3.1-8b",
+        "key_env": "CEREBRAS_API_KEY",
+        "key_url": "https://cloud.cerebras.ai/platform/",
+        "free_tier": True,
+        "description": "Cerebras – najszybsze wnioskowanie na świecie, darmowy tier",
     },
     "ollama": {
         "base_url": "http://localhost:11434/v1",
         "model": "llama3.2",
-        "key_env": None,  # Bez klucza
+        "key_env": None,
+        "key_url": "https://ollama.com/download",
+        "free_tier": True,
+        "description": "Ollama – lokalne modele, brak klucza API, pełna prywatność",
     },
 }
 
@@ -221,10 +292,16 @@ class FixOsConfig:
         )
 
 
-def get_providers_list() -> str:
-    """Zwraca sformatowaną listę providerów."""
-    lines = []
+def get_providers_list() -> list[dict]:
+    """Zwraca listę providerów jako listę słowników."""
+    result = []
     for name, d in PROVIDER_DEFAULTS.items():
-        key_env = d.get("key_env", "brak")
-        lines.append(f"  {name:<12} model: {d['model']:<40} klucz: {key_env}")
-    return "\n".join(lines)
+        result.append({
+            "name": name,
+            "model": d["model"],
+            "key_env": d.get("key_env") or "(brak – lokalny)",
+            "key_url": d.get("key_url", ""),
+            "free_tier": d.get("free_tier", False),
+            "description": d.get("description", ""),
+        })
+    return result

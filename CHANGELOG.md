@@ -1,3 +1,16 @@
+## [2.1.6] - 2026-02-18
+
+### Summary
+
+feat(goal): CLI interface improvements
+
+### Other
+
+- update fixos/agent/hitl.py
+- update fixos/cli.py
+- update fixos/config.py
+
+
 ## [2.1.5] - 2026-02-18
 
 ### Summary
