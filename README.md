@@ -1,3 +1,5 @@
+<img width="1368" height="1216" alt="obraz" src="https://github.com/user-attachments/assets/cf038295-d5e8-4e79-8ac3-db697d57b2d3" />
+
 # fixfedora v2.0 🔧🤖
 
 **AI diagnostyka i naprawa Fedora Linux** – audio, thumbnails, sprzęt Lenovo Yoga
