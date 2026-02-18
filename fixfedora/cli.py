@@ -493,6 +493,129 @@ def test_llm(provider, token, model, no_banner):
 
 
 # ══════════════════════════════════════════════════════════
+#  fixfedora orchestrate
+# ══════════════════════════════════════════════════════════
+
+@cli.command()
+@add_common_options
+@click.option("--mode", type=click.Choice(["hitl", "autonomous"]), default=None,
+              help="Tryb: hitl (domyślny) lub autonomous")
+@click.option("--modules", "-M", default=None,
+              help="Moduły diagnostyki: audio,thumbnails,hardware,system")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Symuluj wykonanie komend bez faktycznego uruchamiania")
+@click.option("--max-iterations", default=50, show_default=True,
+              help="Maksymalna liczba iteracji napraw")
+@click.option("--output", "-o", default=None, help="Zapisz log sesji do JSON")
+def orchestrate(provider, token, model, no_banner, mode, modules, dry_run, max_iterations, output):
+    """
+    Orkiestracja napraw z grafem kaskadowych problemów.
+
+    \b
+    Różnica od 'fix':
+      - Buduje graf zależności między problemami (DAG)
+      - Po każdej naprawie re-diagnozuje i wykrywa nowe problemy
+      - LLM ocenia wynik każdej komendy (JSON structured output)
+      - Transparentne drzewo problemów z linkowanymi przyczynami
+
+    \b
+    Przykłady:
+      fixfedora orchestrate                    # pełna diagnostyka + naprawy
+      fixfedora orchestrate --dry-run          # podgląd bez wykonywania
+      fixfedora orchestrate --modules audio    # tylko problemy audio
+      fixfedora orchestrate --mode autonomous  # bez pytania o każdą komendę
+    """
+    if not no_banner:
+        click.echo(click.style(BANNER, fg="cyan"))
+
+    cfg = FixFedoraConfig.load(
+        provider=provider,
+        api_key=token,
+        model=model,
+        agent_mode=mode,
+    )
+    if mode:
+        cfg.agent_mode = mode
+
+    errors = cfg.validate()
+    if errors:
+        for err in errors:
+            click.echo(click.style(f"❌ {err}", fg="red"))
+        sys.exit(1)
+
+    click.echo(click.style("\n⚙️  Konfiguracja:", fg="cyan"))
+    click.echo(cfg.summary())
+    if dry_run:
+        click.echo(click.style("  🔍 Tryb: DRY-RUN (komendy nie będą wykonywane)", fg="yellow"))
+
+    # Diagnostyka
+    selected_modules = modules.split(",") if modules else None
+    click.echo(click.style("\n🔍 Zbieranie diagnostyki...", fg="yellow"))
+
+    def progress(name, desc):
+        click.echo(f"  → {desc}...")
+
+    data = get_full_diagnostics(selected_modules, progress_callback=progress)
+    click.echo(click.style("✅ Diagnostyka gotowa.\n", fg="green"))
+
+    # Inicjalizuj orkiestrator
+    from .orchestrator import FixOrchestrator
+    from .orchestrator.executor import CommandExecutor
+
+    executor = CommandExecutor(
+        default_timeout=120,
+        require_confirmation=(cfg.agent_mode == "hitl"),
+        dry_run=dry_run,
+    )
+    orch = FixOrchestrator(config=cfg, executor=executor)
+
+    # Załaduj problemy przez LLM
+    click.echo(click.style("🧠 LLM analizuje dane diagnostyczne...", fg="yellow"))
+    problems = orch.load_from_diagnostics(data)
+
+    if not problems:
+        click.echo(click.style("  ✅ LLM nie wykrył problemów wymagających naprawy.", fg="green"))
+        return
+
+    click.echo(click.style(f"\n📊 Graf problemów ({len(problems)} wykrytych):", fg="cyan"))
+    click.echo(orch.graph.render_tree())
+    click.echo()
+
+    # Główna pętla napraw
+    summary = orch.run_sync()
+
+    # Podsumowanie
+    click.echo(click.style("\n═" * 65, fg="cyan"))
+    click.echo(click.style("  📊 PODSUMOWANIE SESJI", fg="cyan"))
+    click.echo(click.style("═" * 65, fg="cyan"))
+    by_status = summary.get("by_status", {})
+    resolved = len(by_status.get("resolved", []))
+    failed = len(by_status.get("failed", []))
+    pending = len(by_status.get("pending", []))
+    click.echo(f"  ✅ Naprawiono  : {resolved}")
+    click.echo(f"  ❌ Nieudane    : {failed}")
+    click.echo(f"  ⏳ Pozostałe   : {pending}")
+    click.echo(f"  ⏱️  Czas sesji  : {summary.get('elapsed_seconds', 0)}s")
+    click.echo()
+    click.echo(click.style("  Aktualny stan grafu:", fg="cyan"))
+    click.echo(orch.graph.render_tree())
+
+    if output:
+        try:
+            Path(output).write_text(
+                json.dumps({
+                    "summary": summary,
+                    "log": orch.session_log,
+                    "graph": {pid: p.to_summary() for pid, p in orch.graph.nodes.items()},
+                }, ensure_ascii=False, indent=2, default=str),
+                encoding="utf-8"
+            )
+            click.echo(click.style(f"\n💾 Log sesji: {output}", fg="green"))
+        except Exception as e:
+            click.echo(f"⚠️  Błąd zapisu: {e}")
+
+
+# ══════════════════════════════════════════════════════════
 #  ENTRY POINT
 # ══════════════════════════════════════════════════════════
 

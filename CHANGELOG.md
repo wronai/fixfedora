@@ -1,3 +1,18 @@
+## [2.0.7] - 2026-02-18
+
+### Summary
+
+refactor(goal): CLI interface improvements
+
+### Test
+
+- update tests/unit/test_orchestrator.py
+
+### Other
+
+- update fixfedora/cli.py
+
+
 ## [2.0.6] - 2026-02-18
 
 ### Summary
