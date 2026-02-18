@@ -1,3 +1,14 @@
+## [2.1.1] - 2026-02-18
+
+### Summary
+
+chore(goal): config module improvements
+
+### Config
+
+- config: update goal.yaml
+
+
 ## [2.0.8] - 2026-02-18
 
 ### Summary
