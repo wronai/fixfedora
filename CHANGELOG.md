@@ -1,3 +1,14 @@
+## [2.0.3] - 2026-02-18
+
+### Summary
+
+fix(config): config module improvements
+
+### Other
+
+- update fixfedora/config.py
+
+
 ## [2.0.2] - 2026-02-18
 
 ### Summary

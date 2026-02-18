@@ -44,7 +44,7 @@ PROVIDER_DEFAULTS = {
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
-        "model": "google/gemini-2.0-flash-exp:free",
+        "model": "openai/gpt-4o-mini",
         "key_env": "OPENROUTER_API_KEY",
     },
     "ollama": {
