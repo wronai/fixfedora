@@ -112,11 +112,27 @@ class CommandExecutor:
         cmd = command.strip()
         if cmd.startswith("sudo"):
             return False
+        # systemctl --user must NOT run under sudo (breaks DBUS session bus)
+        if cmd.startswith("systemctl") and "--user" in cmd:
+            return False
         return any(cmd.startswith(p) for p in NEEDS_SUDO_PREFIXES)
 
     def add_sudo(self, command: str) -> str:
         if self.needs_sudo(command):
             return "sudo " + command.strip()
+        return command
+
+    def _make_noninteractive(self, command: str) -> str:
+        """Dodaje flagi nieinteraktywne do komend menedżerów pakietów."""
+        pkg_install = re.match(
+            r"^(sudo\s+)?(apt-get|apt|dnf|yum)\s+(install|upgrade|dist-upgrade|update)\b",
+            command.strip(),
+            re.IGNORECASE,
+        )
+        if pkg_install and "-y" not in command and "--yes" not in command:
+            # Wstaw -y po subkomendzie (np. "apt-get install" → "apt-get install -y")
+            subcmd = pkg_install.group(3)
+            command = command.replace(subcmd, f"{subcmd} -y", 1)
         return command
 
     def check_idempotent(self, command: str) -> Optional[str]:
@@ -148,6 +164,9 @@ class CommandExecutor:
         # Dodaj sudo jeśli potrzeba
         if add_sudo:
             command = self.add_sudo(command)
+
+        # Wymuś tryb nieinteraktywny dla menedżerów pakietów
+        command = self._make_noninteractive(command)
 
         # Sprawdź idempotentność
         if check_idempotent:

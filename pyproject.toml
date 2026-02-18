@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fixos"
-version = "2.1.4"
+version = "2.1.5"
 description = "AI-powered Linux/Windows diagnostics and repair – audio, hardware, system issues"
 readme = "README.md"
 license = "Apache-2.0"

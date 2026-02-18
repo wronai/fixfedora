@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────
-#  fixfedora – zależności runtime
+#  fixos – zależności runtime
 #  Instalacja: pip install -r requirements.txt
 #
 #  Systemowe alternatywy (Fedora):

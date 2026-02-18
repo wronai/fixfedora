@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════
-#  fixfedora – Makefile
+#  fixOS – Makefile
 #  Użycie: make <cel>
 # ══════════════════════════════════════════════════════════
 
@@ -10,7 +10,7 @@
 # ── Domyślna komenda ──────────────────────────────────────
 help:
 	@echo ""
-	@echo "  fixfedora – dostępne komendy Makefile"
+	@echo "  fixOS – dostępne komendy Makefile"
 	@echo ""
 	@echo "  Instalacja:"
 	@echo "    make install        instaluj paczkę (runtime)"
@@ -68,15 +68,15 @@ test-real:
 	pytest tests/e2e/ -v --tb=short -k "real_llm"
 
 test-cov:
-	pytest tests/ -v --cov=fixfedora --cov-report=term-missing --cov-report=html:htmlcov
+	pytest tests/ -v --cov=fixos --cov-report=term-missing --cov-report=html:htmlcov
 	@echo "📊 Raport pokrycia: htmlcov/index.html"
 
 # ── Jakość kodu ───────────────────────────────────────────
 lint:
-	ruff check fixfedora/ tests/ || true
+	ruff check fixos/ tests/ || true
 
 format:
-	black fixfedora/ tests/
+	black fixos/ tests/
 
 # ── Docker ───────────────────────────────────────────────
 docker-build:
@@ -96,13 +96,13 @@ docker-e2e:
 
 # ── Uruchomienie ──────────────────────────────────────────
 config-init:
-	fixfedora config init
+	fixos config init
 
 run-scan:
-	fixfedora scan
+	fixos scan
 
 run-fix:
-	fixfedora fix
+	fixos fix
 
 # ── Paczka ───────────────────────────────────────────────
 build: clean

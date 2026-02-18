@@ -14,6 +14,8 @@ import platform
 from datetime import datetime
 from typing import Any
 
+from ..platform_utils import IS_LINUX as _IS_LINUX, IS_WINDOWS as _IS_WINDOWS, IS_MAC as _IS_MAC, SYSTEM as _SYSTEM
+
 
 def _cmd(cmd: str, timeout: int = 20) -> str:
     """Uruchamia komendę i zwraca output jako string."""

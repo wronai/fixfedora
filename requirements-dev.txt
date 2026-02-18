@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────
-#  fixfedora – zależności developerskie / testowe
+#  fixos – zależności developerskie / testowe
 #  Instalacja: pip install -r requirements-dev.txt
 # ──────────────────────────────────────────────────────────
 -r requirements.txt

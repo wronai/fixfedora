@@ -67,7 +67,21 @@ def anonymize(data_str: str) -> tuple[str, AnonymizationReport]:
             data_str = data_str.replace(sensitive["hostname"], "[HOSTNAME]")
             report.add("Hostname", count)
 
-    # 2. Username (konkretna nazwa)
+    # 2. Katalog domowy (pełna ścieżka – PRZED zastąpieniem username)
+    if sensitive.get("home"):
+        count = data_str.count(sensitive["home"])
+        if count:
+            data_str = data_str.replace(sensitive["home"], "/home/[USER]")
+            report.add("Ścieżka domowa", count)
+
+    # 3. Ścieżki /home/<user>/... – dowolna głębokość (po literalnym zastąpieniu)
+    home_pattern = r"/home/(?!\[USER\])[^\s\"'\\]+"
+    matches = len(re.findall(home_pattern, data_str))
+    if matches:
+        data_str = re.sub(home_pattern, "/home/[USER]/...", data_str)
+        report.add("Ścieżki /home", matches)
+
+    # 4. Username (konkretna nazwa) – po zastąpieniu ścieżek
     if sensitive.get("username"):
         pattern = rf"\b{re.escape(sensitive['username'])}\b"
         matches = len(re.findall(pattern, data_str))
@@ -75,33 +89,19 @@ def anonymize(data_str: str) -> tuple[str, AnonymizationReport]:
             data_str = re.sub(pattern, "[USER]", data_str)
             report.add("Username", matches)
 
-    # 3. Katalog domowy
-    if sensitive.get("home"):
-        count = data_str.count(sensitive["home"])
-        if count:
-            data_str = data_str.replace(sensitive["home"], "/home/[USER]")
-            report.add("Ścieżka domowa", count)
-
-    # 4. Adresy IPv4 (zachowaj 2 pierwsze oktety)
+    # 5. Adresy IPv4 (zachowaj 2 pierwsze oktety)
     ipv4_pattern = r"\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b"
     matches = len(re.findall(ipv4_pattern, data_str))
     if matches:
         data_str = re.sub(ipv4_pattern, r"\1.XXX.XXX", data_str)
         report.add("Adresy IPv4", matches)
 
-    # 5. Adresy MAC
+    # 6. Adresy MAC
     mac_pattern = r"\b([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b"
     matches = len(re.findall(mac_pattern, data_str))
     if matches:
         data_str = re.sub(mac_pattern, "XX:XX:XX:XX:XX:XX", data_str)
         report.add("Adresy MAC", matches)
-
-    # 6. Ścieżki /home/<user>
-    home_pattern = r"/home/[^\s/\"':]+"
-    matches = len(re.findall(home_pattern, data_str))
-    if matches:
-        data_str = re.sub(home_pattern, "/home/[USER]", data_str)
-        report.add("Ścieżki /home", matches)
 
     # 7. Tokeny API (sk-, xai-, AIzaSy-, Bearer)
     token_pattern = r"(?<![A-Za-z0-9])(?:sk-|xai-|AIzaSy[A-Za-z0-9_-]+|Bearer\s+)[A-Za-z0-9\-_.]{15,}"

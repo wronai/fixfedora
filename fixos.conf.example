@@ -1,6 +1,6 @@
-# ~/.fixfedora.conf
-# Plik konfiguracyjny fixfedora
-# Skopiuj do katalogu domowego i ustaw uprawnienia: chmod 600 ~/.fixfedora.conf
+# ~/.fixos.conf
+# Plik konfiguracyjny fixos
+# Skopiuj do katalogu domowego i ustaw uprawnienia: chmod 600 ~/.fixos.conf
 
 # Klucz API OpenAI (wymagany do działania LLM shell)
 # Utwórz klucz na: https://platform.openai.com/api-keys

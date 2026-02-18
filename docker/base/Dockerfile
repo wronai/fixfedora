@@ -19,13 +19,13 @@ RUN dnf install -y \
     lsof \
     && dnf clean all
 
-# Zainstaluj fixfedora
+# Zainstaluj fixos
 WORKDIR /app
 COPY . /app
 RUN pip3 install -e ".[dev]" --quiet
 
 # Ustaw env testowy (bez prawdziwego tokena – używany przez testy mock)
-ENV FIXFEDORA_TEST_MODE=1
+ENV FIXOS_TEST_MODE=1
 ENV LLM_PROVIDER=gemini
 
 CMD ["/bin/bash"]

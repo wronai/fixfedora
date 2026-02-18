@@ -1,4 +1,4 @@
-FROM fixfedora-base:latest
+FROM fixos-base:latest
 
 LABEL scenario="broken-full"
 LABEL description="Pełne środowisko testowe: broken audio + thumbnails + failed usługi + brak aktualizacji"

@@ -1,4 +1,4 @@
-FROM fixfedora-base:latest
+FROM fixos-base:latest
 
 LABEL scenario="broken-audio"
 LABEL description="Symuluje uszkodzony dźwięk: brak sof-firmware, failed PipeWire, mute ALSA"
@@ -31,7 +31,7 @@ echo "-- SOF firmware:"
 ls /lib/firmware/intel/sof* 2>/dev/null || echo "BRAK"
 echo "-- PipeWire status:"
 systemctl --user status pipewire 2>/dev/null || echo "NIEDOSTĘPNY"
-echo "=== Oczekiwany wynik: fixfedora wykryje brak audio ==="
+echo "=== Oczekiwany wynik: fixos wykryje brak audio ==="
 EOF
 RUN chmod +x /usr/local/bin/verify-scenario.sh
 

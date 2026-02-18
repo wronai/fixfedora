@@ -1,3 +1,36 @@
+## [2.1.5] - 2026-02-18
+
+### Summary
+
+fix(build): configuration management system
+
+### Docs
+
+- docs: update README
+
+### Test
+
+- update tests/test_fixos.py
+
+### Build
+
+- update setup.py
+
+### Other
+
+- update .gitignore
+- update LICENSE
+- update MANIFEST.in
+- build: update Makefile
+- docker: update Dockerfile
+- docker: update Dockerfile
+- docker: update Dockerfile
+- docker: update Dockerfile
+- docker: update docker-compose.yml
+- update fixos.conf.example
+- ... and 6 more
+
+
 ## [2.1.4] - 2026-02-18
 
 ### Summary

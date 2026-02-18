@@ -5,13 +5,6 @@
 **AI diagnostyka i naprawa wszystkich systemów** – Linux, Windows, macOS
 z anonimizacją danych, trybem HITL/Autonomous i zewnętrznymi źródłami wiedzy.
 
-```
-   __ _  ___   __| | ___ _ __
-  / _` |/ _ \ / _` |/ _ \ '__|
- | (_| | (_) | (_| |  __/ |
-  \__, |\___/ \__,_|\___|_|
-  |___/         AI Diagnostics  •  v2.1.1
-```
 
 ---
 

@@ -1,4 +1,4 @@
-FROM fixfedora-base:latest
+FROM fixos-base:latest
 
 LABEL scenario="broken-thumbnails"
 LABEL description="Symuluje brak podglądów: brak thumbnailerów, pusty cache, brak GStreamer"
@@ -41,7 +41,7 @@ echo "-- ffmpegthumbnailer:"
 which ffmpegthumbnailer 2>/dev/null || echo "BRAK"
 echo "-- Thumbnail cache:"
 find /root/.cache/thumbnails/ -name "*.png" | wc -l
-echo "=== Oczekiwany wynik: fixfedora wykryje brak thumbnailerów ==="
+echo "=== Oczekiwany wynik: fixos wykryje brak thumbnailerów ==="
 EOF
 RUN chmod +x /usr/local/bin/verify-scenario.sh
 
