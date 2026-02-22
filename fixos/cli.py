@@ -90,34 +90,42 @@ def cli(ctx, prompt, dry_run):
 
 def _handle_natural_command(prompt: str, dry_run: bool = False):
     """Obsluga polecen w jezyku naturalnym."""
-    # Mapa slow kluczowych na komendy
-    command_map = {
-        # Docker
-        ("docker", "kontener", "kontenery", "container"): ("docker", ["ps", "-aq"]),
-        ("wylacz", "stop", "zatrzymaj"): ("docker", ["ps", "-aq", "|", "xargs", "docker", "stop"]),
-        ("usun", "rm", "remove", "delete"): ("docker", ["ps", "-aq", "|", "xargs", "docker", "rm", "-f"]),
-        ("lista", "list", "ps", "pokaz"): ("docker", ["ps", "-a"]),
-
-        # System
-        ("scan", "diagnostyka", "zlap", "bledy", "errors"): ("fixos", ["scan"]),
-        ("fix", "napraw"): ("fixos", ["fix"]),
-        ("siec", "network", "internet"): ("fixos", ["scan", "--modules", "system"]),
-
-        # Audio
-        ("audio", "dzwięk", "sound"): ("fixos", ["fix", "--modules", "audio"]),
-
-        # Security
-        ("bezpieczenstwo", "security"): ("fixos", ["scan", "--modules", "security"]),
-    }
-
-    # Proste dopasowanie slow kluczowych
     prompt_lower = prompt.lower()
+    
+    # Wykryj akcję (pierwsze dopasowanie)
+    action_keywords = {
+        # Docker actions - musi być przed "docker" aby "wylacz kontenery" działało
+        ("wylacz", "stop", "zatrzymaj"): "docker ps -aq | xargs -r docker stop",
+        ("usun", "rm", "remove", "delete", "usuń"): "docker ps -aq | xargs -r docker rm -f",
+        
+        # System actions
+        ("scan", "diagnostyka", "zlap", "bledy", "errors"): ("fixos", ["scan"]),
+        ("fix", "napraw", "naprawa"): ("fixos", ["fix"]),
+        
+        # Other
+        ("lista", "list", "ps", "pokaz", "pokaż"): None,  # handled below
+    }
+    
     matched_cmd = None
-
-    for keywords, cmd in command_map.items():
+    for keywords, cmd in action_keywords.items():
         if any(kw in prompt_lower for kw in keywords):
-            matched_cmd = cmd
-            break
+            if cmd is not None:
+                matched_cmd = cmd
+                break
+            # dla "lista" - sprawdź czy to docker
+            if "docker" in prompt_lower or "kontener" in prompt_lower:
+                matched_cmd = ("docker", ["ps", "-a"])
+                break
+    else:
+        # Jeśli nie znaleziono akcji, sprawdź obiekty
+        if "docker" in prompt_lower or "kontener" in prompt_lower or "container" in prompt_lower:
+            matched_cmd = ("docker", ["ps", "-aq"])
+        elif "audio" in prompt_lower or "dzwięk" in prompt_lower or "sound" in prompt_lower:
+            matched_cmd = ("fixos", ["fix", "--modules", "audio"])
+        elif "siec" in prompt_lower or "network" in prompt_lower or "internet" in prompt_lower:
+            matched_cmd = ("fixos", ["scan", "--modules", "system"])
+        elif "bezpieczenstwo" in prompt_lower or "security" in prompt_lower:
+            matched_cmd = ("fixos", ["scan", "--modules", "security"])
 
     if not matched_cmd:
         click.echo(click.style(f"\n⚠️  Nie rozpoznałem polecenia: {prompt}", fg="yellow"))
@@ -127,14 +135,19 @@ def _handle_natural_command(prompt: str, dry_run: bool = False):
         click.echo('    fixos "napraw audio"')
         return
 
-    # Wykonaj polecenie - matched_cmd to krotka: (program, [arg1, arg2, ...])
+    # Wykonaj polecenie - matched_cmd może być stringiem lub krotką
     import subprocess
 
-    cmd_program = matched_cmd[0]  # np. "docker"
-    cmd_args = matched_cmd[1] if len(matched_cmd) > 1 else []  # np. ["ps", "-aq"]
-    cmd_full = [cmd_program] + cmd_args
+    if isinstance(matched_cmd, str):
+        # Już gotowy string (np. "docker ps -aq | xargs -r docker stop")
+        cmd_str = matched_cmd
+    else:
+        # Krotka: (program, [arg1, arg2, ...])
+        cmd_program = matched_cmd[0]
+        cmd_args = matched_cmd[1] if len(matched_cmd) > 1 else []
+        cmd_full = [cmd_program] + cmd_args
+        cmd_str = " ".join(cmd_full)
     
-    cmd_str = " ".join(cmd_full)
     click.echo(click.style(f"\n🔧 Wykonuję: {cmd_str}", fg="cyan"))
 
     if dry_run:
@@ -142,7 +155,8 @@ def _handle_natural_command(prompt: str, dry_run: bool = False):
         return
 
     try:
-        result = subprocess.run(cmd_full, capture_output=True, text=True, shell=False)
+        # Użyj shell=True dla poleceń z potokami |
+        result = subprocess.run(cmd_str, capture_output=True, text=True, shell=True)
         if result.stdout:
             click.echo(result.stdout)
         if result.stderr:
