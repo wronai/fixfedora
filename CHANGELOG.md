@@ -1,3 +1,14 @@
+## [2.1.16] - 2026-02-26
+
+### Summary
+
+feat(build): deep code analysis engine with 2 supporting modules
+
+### Ci
+
+- config: update ci.yml
+
+
 ## [2.1.15] - 2026-02-22
 
 ### Summary
