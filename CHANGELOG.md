@@ -1,3 +1,14 @@
+## [2.1.19] - 2026-02-26
+
+### Summary
+
+fix(goal): CLI interface improvements
+
+### Other
+
+- update fixos/cli.py
+
+
 ## [2.1.18] - 2026-02-26
 
 ### Summary

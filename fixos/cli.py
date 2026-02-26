@@ -508,13 +508,16 @@ def scan(modules, output, show_raw, no_banner, disc, dry_run, interactive, json_
     if not no_banner:
         click.echo(click.style(BANNER, fg="cyan"))
 
-    selected_modules = [modules] if modules else None
-    click.echo(click.style("🔍 Zbieranie diagnostyki...", fg="yellow"))
-
-    def progress(name, desc):
-        click.echo(f"  → {desc}...")
-
-    data = get_full_diagnostics(selected_modules, progress_callback=progress)
+    selected_modules = [modules] if modules and modules != "all" else None
+    
+    if disc and modules == "all":
+        # Skip heavy system diagnostics if only disk is requested implicitly
+        data = {}
+    else:
+        click.echo(click.style("🔍 Zbieranie diagnostyki...", fg="yellow"))
+        def progress(name, desc):
+            click.echo(f"  → {desc}...")
+        data = get_full_diagnostics(selected_modules, progress_callback=progress)
     
     # Add disk analysis if --disc flag is used
     if disc:
@@ -696,12 +699,15 @@ def fix(provider, token, model, no_banner, mode, timeout, modules, no_show_data,
 
     # Diagnostics
     selected_modules = modules.split(",") if modules else None
-    click.echo(click.style("\n🔍 Zbieranie diagnostyki...", fg="yellow"))
-
-    def progress(name, desc):
-        click.echo(f"  → {desc}...")
-
-    data = get_full_diagnostics(selected_modules, progress_callback=progress)
+    
+    if disc and not modules:
+        # Skip heavy system diagnostics if only disk is requested implicitly
+        data = {}
+    else:
+        click.echo(click.style("\n🔍 Zbieranie diagnostyki...", fg="yellow"))
+        def progress(name, desc):
+            click.echo(f"  → {desc}...")
+        data = get_full_diagnostics(selected_modules, progress_callback=progress)
     
     # Add disk analysis if --disc flag is used
     if disc:
