@@ -1,3 +1,42 @@
+## [2.1.17] - 2026-02-26
+
+### Summary
+
+fix(goal): code analysis engine
+
+### Docs
+
+- docs: update README
+
+### Test
+
+- update test_click.py
+- update test_click2.py
+
+### Other
+
+- update TICKET
+- update fixos/cli.py
+- update fixos/diagnostics/disk_analyzer.py
+- update fixos/interactive/__init__.py
+- update fixos/interactive/cleanup_planner.py
+- update fixos/providers/llm_analyzer.py
+- update patch_cli.py
+- update patch_cli2.py
+- update patch_cli3.py
+- update patch_cli4.py
+- ... and 2 more
+
+
+## [Unreleased]
+
+### Added
+
+- **feat(disk):** Nowa funkcja `--disc` (`--disk`) dla poleceń `fix` i `scan` do analizy zajętości dysku.
+- **feat(interactive):** Kreator czyszczenia dysku (CleanupPlanner) z priorytetami (🔴/🟡/🟢).
+- **feat(llm):** Fallback LLM dla błędów podczas czyszczenia dysku.
+- **fix(cli):** Naprawa parsera grupowego (NaturalLanguageGroup) w celu poprawnego działania komend.
+
 ## [2.1.16] - 2026-02-26
 
 ### Summary

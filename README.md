@@ -73,6 +73,9 @@ fixos test-llm          – testuj połączenie z LLM
 # Tylko diagnostyka audio + zapis do pliku
 fixos scan --audio --output /tmp/audio-report.json
 
+# Analiza i interaktywne czyszczenie zajętości dysku
+fixos fix --disc
+
 # Napraw audio i thumbnails (HITL – pyta o potwierdzenie)
 fixos fix --modules audio,thumbnails
 
